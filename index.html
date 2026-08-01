@@ -55,10 +55,17 @@
             <h3 id="modal-room-title" class="text-xl font-bold mb-4 text-gray-800">Detail Kamar</h3>
             
             <div id="modal-overview" class="space-y-4">
-                <div class="bg-gray-50 p-4 rounded-xl border space-y-2 text-sm text-gray-700">
+                <div class="bg-gray-50 p-4 rounded-xl border space-y-3 text-sm text-gray-700">
                     <p><strong>Nama Penyewa:</strong> <span id="ov-name" class="text-gray-900">-</span></p>
                     <p><strong>Periode Sewa:</strong> <span id="ov-period" class="text-gray-900">-</span></p>
-                    <p><strong>Status Pembayaran:</strong> <span id="ov-payment" class="font-semibold">-</span></p>
+                    
+                    <div>
+                        <strong class="block mb-1">Rincian Pembayaran Per Bulan:</strong>
+                        <div id="ov-payments-list" class="space-y-2 max-h-40 overflow-y-auto pr-1">
+                            <p class="text-gray-400 text-xs">Memuat tagihan...</p>
+                        </div>
+                    </div>
+
                     <p><strong>Foto KTP:</strong> <span id="ov-ktp">-</span></p>
                 </div>
                 
@@ -66,7 +73,7 @@
                     <button type="button" onclick="clearRoomData()" class="px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-semibold hover:bg-red-200 transition">Kosongkan Kamar</button>
                     <div class="flex gap-2">
                         <button type="button" onclick="closeModal()" class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 text-sm font-medium">Tutup</button>
-                        <button type="button" onclick="showEditForm()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition">Edit Data</button>
+                        <button type="button" onclick="showEditForm()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition">Edit Data / Kontrak</button>
                     </div>
                 </div>
             </div>
@@ -86,16 +93,17 @@
                         <input type="date" id="start-date" class="w-full mt-1 p-2 border rounded-lg text-sm" required>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Jatuh Tempo</label>
+                        <label class="block text-sm font-medium text-gray-700">Jatuh Tempo Akhir</label>
                         <input type="date" id="end-date" class="w-full mt-1 p-2 border rounded-lg text-sm" required>
                     </div>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700">Status Pembayaran Bulan Ini</label>
+                    <label class="block text-sm font-medium text-gray-700">Status Pembayaran Bulan Pertama</label>
                     <select id="payment-status" class="w-full mt-1 p-2 border rounded-lg text-sm">
                         <option value="Lunas">Lunas</option>
                         <option value="Belum Lunas">Belum Lunas</option>
                     </select>
+                    <p class="text-[11px] text-gray-500 mt-1">*Bulan berikutnya otomatis dibuat berstatus "Belum Lunas".</p>
                 </div>
                 
                 <div class="flex justify-end gap-2 mt-6">
@@ -104,10 +112,10 @@
                 </div>
             </form>
 
-            <!-- RIWAYAT KHUSUS KAMAR INI (Maksimal 10 Terbaru) -->
+            <!-- RIWAYAT KHUSUS KAMAR INI -->
             <div class="mt-6 pt-4 border-t">
                 <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">📜 Riwayat Aktivitas Kamar Ini (Maks. 10):</h4>
-                <div id="room-specific-history" class="space-y-2 max-h-40 overflow-y-auto text-xs text-gray-600 pr-1">
+                <div id="room-specific-history" class="space-y-2 max-h-32 overflow-y-auto text-xs text-gray-600 pr-1">
                     <p class="text-gray-400 text-center py-2">Memuat riwayat...</p>
                 </div>
             </div>
@@ -169,7 +177,6 @@
             location.reload();
         }
 
-        // FUNGSI PENCATAT RIWAYAT DENGAN PEMBATASAN MAKSIMAL 10 TERBARU
         async function logActivity(roomNumber, actionDesc) {
             const { data: { session } } = await _supabase.auth.getSession();
             const email = session ? session.user.email : 'Unknown';
@@ -194,7 +201,6 @@
                 locationStr = "GPS tidak aktif";
             }
 
-            // 1. Simpan riwayat baru
             await _supabase.from('room_logs').insert([{
                 room_number: roomNumber,
                 action: actionDesc,
@@ -203,24 +209,18 @@
                 location: locationStr
             }]);
 
-            // 2. Ambil seluruh riwayat kamar ini, urutkan dari yang terbaru
             const { data: allLogs, error } = await _supabase
                 .from('room_logs')
                 .select('id')
                 .eq('room_number', roomNumber)
                 .order('created_at', { ascending: false });
 
-            // 3. Jika lebih dari 10, hapus kelebihan data yang paling lama
             if (!error && allLogs && allLogs.length > 10) {
                 const logsToDelete = allLogs.slice(10).map(log => log.id);
-                await _supabase
-                    .from('room_logs')
-                    .delete()
-                    .in('id', logsToDelete);
+                await _supabase.from('room_logs').delete().in('id', logsToDelete);
             }
         }
 
-        // FUNGSI MEMUAT RIWAYAT KHUSUS KAMAR INI
         async function loadRoomHistory(roomNumber) {
             const container = document.getElementById('room-specific-history');
             container.innerHTML = '<p class="text-gray-400 text-center py-2">Memuat riwayat...</p>';
@@ -232,21 +232,20 @@
                 .order('created_at', { ascending: false });
 
             if (error || !logs || logs.length === 0) {
-                container.innerHTML = '<p class="text-gray-400 text-center py-2">Belum ada riwayat perubahan untuk kamar ini.</p>';
+                container.innerHTML = '<p class="text-gray-400 text-center py-2">Belum ada riwayat aktivitas.</p>';
                 return;
             }
 
             container.innerHTML = '';
             logs.forEach(log => {
                 const item = document.createElement('div');
-                item.className = "p-2.5 bg-gray-50 rounded-lg border space-y-0.5";
+                item.className = "p-2 bg-gray-50 rounded-lg border space-y-0.5";
                 item.innerHTML = `
                     <div class="flex justify-between font-semibold text-gray-800">
                         <span>${log.action}</span>
                         <span class="text-blue-600 font-normal text-[11px]">${log.changed_by}</span>
                     </div>
                     <p class="text-[11px] text-gray-500">🕒 ${log.timestamp}</p>
-                    <p class="text-[11px] text-gray-500">📍 ${log.location}</p>
                 `;
                 container.appendChild(item);
             });
@@ -256,38 +255,42 @@
             const container = document.getElementById('room-sections-container');
             container.innerHTML = '<p class="text-gray-500 text-center">Memuat data kamar...</p>';
 
-            const { data: rooms, error } = await _supabase
-                .from('rooms')
-                .select('*')
-                .eq('building', activeBuilding);
+            const { data: rooms, error } = await _supabase.from('rooms').select('*').eq('building', activeBuilding);
+            const { data: payments } = await _supabase.from('payments').select('*');
 
             if (error) {
                 container.innerHTML = '<p class="text-red-500 text-center">Gagal memuat kamar.</p>';
                 return;
             }
 
-            rooms.sort((a, b) => {
-                return a.room_number.localeCompare(b.room_number, undefined, { numeric: true, sensitivity: 'base' });
-            });
+            // Map payments per room to check if any month is unpaid
+            const paymentMap = {};
+            if (payments) {
+                payments.forEach(p => {
+                    if (!paymentMap[p.room_number]) paymentMap[p.room_number] = [];
+                    paymentMap[p.room_number].push(p.status);
+                });
+            }
 
+            rooms.sort((a, b) => a.room_number.localeCompare(b.room_number, undefined, { numeric: true, sensitivity: 'base' }));
             container.innerHTML = '';
 
             if (activeBuilding === 'Omah Gading') {
                 const lantai1 = rooms.filter(r => r.room_number.startsWith('K1.'));
                 const lantai2 = rooms.filter(r => r.room_number.startsWith('K2.'));
-                if (lantai1.length > 0) renderSection(container, 'Lantai 1', lantai1);
-                if (lantai2.length > 0) renderSection(container, 'Lantai 2', lantai2);
+                if (lantai1.length > 0) renderSection(container, 'Lantai 1', lantai1, paymentMap);
+                if (lantai2.length > 0) renderSection(container, 'Lantai 2', lantai2, paymentMap);
             } else {
                 const kamarA = rooms.filter(r => r.room_number.startsWith('A'));
                 const kamarB = rooms.filter(r => r.room_number.startsWith('B'));
                 const kamarC = rooms.filter(r => r.room_number.startsWith('C'));
-                if (kamarA.length > 0) renderSection(container, 'Kamar A', kamarA);
-                if (kamarB.length > 0) renderSection(container, 'Kamar B', kamarB);
-                if (kamarC.length > 0) renderSection(container, 'Kamar C', kamarC);
+                if (kamarA.length > 0) renderSection(container, 'Kamar A', kamarA, paymentMap);
+                if (kamarB.length > 0) renderSection(container, 'Kamar B', kamarB, paymentMap);
+                if (kamarC.length > 0) renderSection(container, 'Kamar C', kamarC, paymentMap);
             }
         }
 
-        function renderSection(parentContainer, sectionTitle, roomList) {
+        function renderSection(parentContainer, sectionTitle, roomList, paymentMap) {
             const sectionDiv = document.createElement('div');
             sectionDiv.className = "bg-gray-50 p-4 rounded-xl border";
 
@@ -301,13 +304,34 @@
 
             roomList.forEach(room => {
                 const isKosong = room.status === 'Kosong';
-                const bgColor = isKosong ? 'bg-red-50 border-red-300 text-red-700' : 'bg-green-50 border-green-300 text-green-700';
+                let cardColor = '';
+                let badgeText = '';
+                let badgeColor = '';
+
+                if (isKosong) {
+                    cardColor = 'bg-red-50 border-red-300 text-red-700';
+                    badgeText = 'Kosong';
+                    badgeColor = 'bg-red-200 text-red-800';
+                } else {
+                    const statuses = paymentMap[room.room_number] || [];
+                    const hasUnpaid = statuses.some(s => s === 'Belum Lunas');
+
+                    if (hasUnpaid) {
+                        cardColor = 'bg-yellow-50 border-yellow-300 text-yellow-800';
+                        badgeText = 'Belum Lunas';
+                        badgeColor = 'bg-yellow-200 text-yellow-900';
+                    } else {
+                        cardColor = 'bg-green-50 border-green-300 text-green-700';
+                        badgeText = 'Lunas';
+                        badgeColor = 'bg-green-200 text-green-800';
+                    }
+                }
                 
                 const card = document.createElement('div');
-                card.className = `p-3 rounded-xl border-2 cursor-pointer flex flex-col items-center justify-center transition hover:shadow-md ${bgColor}`;
+                card.className = `p-3 rounded-xl border-2 cursor-pointer flex flex-col items-center justify-center transition hover:shadow-md ${cardColor}`;
                 card.innerHTML = `
                     <span class="text-base font-bold">${room.room_number}</span>
-                    <span class="text-[10px] mt-1 font-medium px-2 py-0.5 rounded ${isKosong ? 'bg-red-200 text-red-800' : 'bg-green-200 text-green-800'}">${room.status}</span>
+                    <span class="text-[10px] mt-1 font-medium px-2 py-0.5 rounded ${badgeColor}">${badgeText}</span>
                 `;
                 card.onclick = () => openModal(room.room_number);
                 gridDiv.appendChild(card);
@@ -339,11 +363,10 @@
             document.getElementById('modal-overview').classList.add('hidden');
             document.getElementById('room-form').classList.add('hidden');
 
-            // Load riwayat khusus kamar ini
             loadRoomHistory(roomNumber);
 
             const { data: tenant } = await _supabase.from('tenants').select('*').eq('room_number', roomNumber).maybeSingle();
-            const { data: payment } = await _supabase.from('payments').select('*').eq('room_number', roomNumber).maybeSingle();
+            const { data: payments } = await _supabase.from('payments').select('*').eq('room_number', roomNumber).order('due_date', { ascending: true });
 
             currentTenantData = tenant;
 
@@ -352,10 +375,32 @@
                 document.getElementById('ov-name').innerText = tenant.name || '-';
                 document.getElementById('ov-period').innerText = `${tenant.start_date || '-'} s/d ${tenant.end_date || '-'}`;
                 
-                const payStatus = payment ? payment.status : '-';
-                const paySpan = document.getElementById('ov-payment');
-                paySpan.innerText = payStatus;
-                paySpan.className = payStatus === 'Lunas' ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold';
+                // Render list pembayaran per bulan
+                const payListContainer = document.getElementById('ov-payments-list');
+                payListContainer.innerHTML = '';
+
+                if (payments && payments.length > 0) {
+                    payments.forEach(pay => {
+                        const isLunas = pay.status === 'Lunas';
+                        const row = document.createElement('div');
+                        row.className = "flex justify-between items-center p-2 bg-white rounded border text-xs";
+                        row.innerHTML = `
+                            <div>
+                                <p class="font-bold text-gray-800">${pay.billing_month}</p>
+                                <p class="text-[10px] text-gray-500">Jatuh tempo: ${pay.due_date}</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-semibold ${isLunas ? 'text-green-600' : 'text-yellow-600'}">${pay.status}</span>
+                                <button onclick="togglePaymentStatus(${pay.id}, '${isLunas ? 'Belum Lunas' : 'Lunas'}', '${roomNumber}')" class="px-2 py-1 text-[10px] bg-gray-100 hover:bg-gray-200 border rounded font-medium">
+                                    Ubah ke ${isLunas ? 'Belum Lunas' : 'Lunas'}
+                                </button>
+                            </div>
+                        `;
+                        payListContainer.appendChild(row);
+                    });
+                } else {
+                    payListContainer.innerHTML = '<p class="text-gray-400 text-xs">Belum ada rincian tagihan bulan.</p>';
+                }
 
                 const ktpSpan = document.getElementById('ov-ktp');
                 if (tenant.id_card_url) {
@@ -366,6 +411,13 @@
             } else {
                 showEditForm();
             }
+        }
+
+        async function togglePaymentStatus(paymentId, newStatus, roomNumber) {
+            await _supabase.from('payments').update({ status: newStatus }).eq('id', paymentId);
+            await logActivity(roomNumber, `Mengubah status tagihan menjadi ${newStatus}`);
+            openModal(roomNumber);
+            loadRooms();
         }
 
         function showEditForm() {
@@ -395,7 +447,7 @@
         }
 
         async function clearRoomData() {
-            if (!confirm(`Yakin ingin mengosongkan Kamar ${selectedRoomNumber}? Data penyewa akan dihapus.`)) return;
+            if (!confirm(`Yakin ingin mengosongkan Kamar ${selectedRoomNumber}? Data penyewa dan tagihan akan dihapus.`)) return;
 
             await logActivity(selectedRoomNumber, 'Mengosongkan Kamar');
 
@@ -408,12 +460,43 @@
             loadRooms();
         }
 
+        // Fungsi bantu membuat daftar bulan otomatis dari tanggal mulai s/d selesai
+        function generateMonthlyBills(startDateStr, endDateStr, initialStatus) {
+            const start = new Date(startDateStr);
+            const end = new Date(endDateStr);
+            const bills = [];
+            
+            let current = new Date(start.getFullYear(), start.getMonth(), 1);
+            const finalMonth = new Date(end.getFullYear(), end.getMonth(), 1);
+
+            let index = 0;
+            while (current <= finalMonth) {
+                const year = current.getFullYear();
+                const month = current.getMonth();
+                const monthName = current.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+                
+                // Buat tanggal jatuh tempo di bulan tersebut (mengikuti tanggal awal atau akhir bulan)
+                const dueDateObj = new Date(year, month, start.getDate());
+                const dueDateStr = dueDateObj.toISOString().split('T')[0];
+
+                bills.push({
+                    billing_month: monthName,
+                    due_date: dueDateStr,
+                    status: index === 0 ? initialStatus : 'Belum Lunas'
+                });
+
+                current.setMonth(current.getMonth() + 1);
+                index++;
+            }
+            return bills;
+        }
+
         async function saveRoomData(event) {
             event.preventDefault();
             const name = document.getElementById('tenant-name').value;
             const startDate = document.getElementById('start-date').value;
             const endDate = document.getElementById('end-date').value;
-            const paymentStatus = document.getElementById('payment-status').value;
+            const initialPaymentStatus = document.getElementById('payment-status').value;
             const fileInput = document.getElementById('ktp-file').files[0];
 
             let ktpUrl = currentTenantData ? currentTenantData.id_card_url : '';
@@ -436,6 +519,7 @@
                 ktpUrl = publicUrlData.publicUrl;
             }
 
+            // Simpan data penyewa
             await _supabase.from('tenants').upsert({
                 room_number: selectedRoomNumber,
                 name: name,
@@ -444,16 +528,23 @@
                 end_date: endDate
             }, { onConflict: 'room_number' });
 
+            // Ubah status kamar jadi Terisi
             await _supabase.from('rooms').update({ status: 'Terisi' }).eq('room_number', selectedRoomNumber);
 
-            await _supabase.from('payments').upsert({
+            // Hapus tagihan lama kamar ini lalu buat ulang berdasarkan rentang bulan sewa
+            await _supabase.from('payments').delete().eq('room_number', selectedRoomNumber);
+            const monthlyBills = generateMonthlyBills(startDate, endDate, initialPaymentStatus);
+            
+            const paymentsInsert = monthlyBills.map(bill => ({
                 room_number: selectedRoomNumber,
-                amount: 0,
-                payment_date: new Date().toISOString().split('T')[0],
-                status: paymentStatus
-            }, { onConflict: 'room_number' });
+                billing_month: bill.billing_month,
+                due_date: bill.due_date,
+                status: bill.status
+            }));
 
-            await logActivity(selectedRoomNumber, 'Memperbarui/Mengisi Data Kamar');
+            await _supabase.from('payments').insert(paymentsInsert);
+
+            await logActivity(selectedRoomNumber, 'Memperbarui/Mengisi Data Kontrak & Tagihan Bulanan');
 
             alert('Data berhasil disimpan!');
             closeModal();
