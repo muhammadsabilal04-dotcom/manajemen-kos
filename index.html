@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manajemen Kos Omah Gading & Living Kost</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4" id="body-container">
+
+    <!-- HALAMAN LOGIN -->
+    <div id="login-screen" class="bg-white rounded-xl shadow-md p-8 max-w-sm w-full">
+        <h1 class="text-2xl font-bold text-gray-800 mb-2 text-center">Login Pegawai</h1>
+        <p class="text-gray-500 text-center mb-6 text-sm">Masukkan PIN untuk akses sistem kos</p>
+        
+        <form onsubmit="handleLogin(event)" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700">PIN Akses</label>
+                <input type="password" id="pin-input" class="w-full mt-1 p-3 border rounded-lg text-center tracking-widest text-lg" placeholder="••••" required>
+            </div>
+            <button type="submit" class="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold shadow hover:bg-blue-700 transition">Masuk</button>
+        </form>
+        <p id="login-error" class="text-red-500 text-xs text-center mt-3 hidden">PIN salah! Coba lagi.</p>
+    </div>
+
+    <!-- HALAMAN UTAMA APLIKASI KOS -->
+    <div id="app-screen" class="hidden max-w-4xl w-full bg-white rounded-xl shadow-md p-6">
+        <div class="flex justify-between items-center mb-4">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800">Manajemen Kos-Kosan</h1>
+                <p class="text-gray-500 text-sm">Omah Gading & Living Kost</p>
+            </div>
+            <button onclick="handleLogout()" class="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300">Keluar</button>
+        </div>
+
+        <!-- Pilihan Gedung -->
+        <div class="flex justify-center gap-4 mb-6">
+            <button onclick="switchBuilding('Omah Gading')" id="btn-omah" class="px-6 py-2 rounded-lg font-semibold bg-blue-600 text-white shadow">Omah Gading</button>
+            <button onclick="switchBuilding('Living Kost')" id="btn-living" class="px-6 py-2 rounded-lg font-semibold bg-gray-200 text-gray-700">Living Kost</button>
+        </div>
+
+        <!-- Daftar Kamar -->
+        <h2 id="current-building-title" class="text-xl font-bold text-gray-700 mb-4">Daftar Kamar: Omah Gading</h2>
+        <div id="room-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+            <!-- Kamar dimuat otomatis -->
+        </div>
+    </div>
+
+    <!-- MODAL DETAIL KAMAR (Overview & Form) -->
+    <div id="room-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl p-6 max-w-md w-full">
+            <h3 id="modal-room-title" class="text-xl font-bold mb-4 text-gray-800">Detail Kamar</h3>
+            
+            <!-- TAMPILAN 1: OVERVIEW (Ringkasan Data) -->
+            <div id="modal-overview" class="space-y-4">
+                <div class="bg-gray-50 p-4 rounded-xl border space-y-2 text-sm text-gray-700">
+                    <p><strong>Nama Penyewa:</strong> <span id="ov-name" class="text-gray-900">-</span></p>
+                    <p><strong>Periode Sewa:</strong> <span id="ov-period" class="text-gray-900">-</span></p>
+                    <p><strong>Status Pembayaran:</strong> <span id="ov-payment" class="font-semibold">-</span></p>
+                    <p><strong>Foto KTP:</strong> <span id="ov-ktp">-</span></p>
+                </div>
+                
+                <div class="flex justify-between items-center pt-2">
+                    <button type="button" onclick="clearRoomData()" class="px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-semibold hover:bg-red-200 transition">Kosongkan Kamar</button>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="closeModal()" class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 text-sm font-medium">Tutup</button>
+                        <button type="button" onclick="showEditForm()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition">Edit Data</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAMPILAN 2: FORM INPUT / EDIT -->
+            <form id="room-form" onsubmit="saveRoomData(event)" class="space-y-4 hidden">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Nama Penyewa / Tamu</label>
+                    <input type="text" id="tenant-name" class="w-full mt-1 p-2 border rounded-lg text-sm" placeholder="Nama lengkap" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Upload Foto KTP / Paspor Baru (Opsional)</label>
+                    <input type="file" id="ktp-file" class="w-full mt-1 p-2 border rounded-lg text-sm">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Mulai Sewa</label>
+                        <input type="date" id="start-date" class="w-full mt-1 p-2 border rounded-lg text-sm" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Jatuh Tempo</label>
+                        <input type="date" id="end-date" class="w-full mt-1 p-2 border rounded-lg text-sm" required>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Status Pembayaran Bulan Ini</label>
+                    <select id="payment-status" class="w-full mt-1 p-2 border rounded-lg text-sm">
+                        <option value="Lunas">Lunas</option>
+                        <option value="Belum Lunas">Belum Lunas</option>
+                    </select>
+                </div>
+                
+                <div class="flex justify-end gap-2 mt-6">
+                    <button type="button" onclick="cancelEdit()" class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 text-sm">Batal</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold">Simpan Data</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://buxsllutgupfpytzckiz.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_N2xFBsIOZCGJxwxTmHVGMg_h4itJtY3';
+
+        const { createClient } = supabase;
+        const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const CORRECT_PIN = '1234';
+
+        let activeBuilding = 'Omah Gading';
+        let selectedRoomNumber = '';
+        let currentTenantData = null;
+
+        window.onload = function() {
+            // Selalu mulai dari halaman login setiap kali halaman direfresh / dibuka baru
+        };
+
+        function handleLogin(event) {
+            event.preventDefault();
+            const enteredPin = document.getElementById('pin-input').value;
+            const errorText = document.getElementById('login-error');
+
+            if (enteredPin === CORRECT_PIN) {
+                showApp();
+            } else {
+                errorText.classList.remove('hidden');
+            }
+        }
+
+        function showApp() {
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('body-container').className = "bg-gray-100 min-h-screen p-4";
+            document.getElementById('app-screen').classList.remove('hidden');
+            loadRooms();
+        }
+
+        function handleLogout() {
+            location.reload(); // Kembali ke halaman login dan mereset sesi
+        }
+
+        async function loadRooms() {
+            const grid = document.getElementById('room-grid');
+            grid.innerHTML = '<p class="text-gray-500 col-span-full text-center">Memuat data kamar...</p>';
+
+            const { data: rooms, error } = await _supabase
+                .from('rooms')
+                .select('*')
+                .eq('building', activeBuilding);
+
+            if (error) {
+                grid.innerHTML = '<p class="text-red-500 col-span-full text-center">Gagal memuat kamar.</p>';
+                return;
+            }
+
+            grid.innerHTML = '';
+            rooms.forEach(room => {
+                const isOccupied = room.status === 'Terisi';
+                const bgColor = isOccupied ? 'bg-red-50 border-red-300 text-red-700' : 'bg-green-50 border-green-300 text-green-700';
+                
+                const card = document.createElement('div');
+                card.className = `p-4 rounded-xl border-2 cursor-pointer flex flex-col items-center justify-center transition hover:shadow-md ${bgColor}`;
+                card.innerHTML = `
+                    <span class="text-lg font-bold">${room.room_number}</span>
+                    <span class="text-xs mt-1 font-medium px-2 py-0.5 rounded ${isOccupied ? 'bg-red-200 text-red-800' : 'bg-green-200 text-green-800'}">${room.status}</span>
+                `;
+                card.onclick = () => openModal(room.room_number);
+                grid.appendChild(card);
+            });
+        }
+
+        function switchBuilding(building) {
+            activeBuilding = building;
+            document.getElementById('current-building-title').innerText = `Daftar Kamar: ${building}`;
+            
+            if (building === 'Omah Gading') {
+                document.getElementById('btn-omah').className = 'px-6 py-2 rounded-lg font-semibold bg-blue-600 text-white shadow';
+                document.getElementById('btn-living').className = 'px-6 py-2 rounded-lg font-semibold bg-gray-200 text-gray-700';
+            } else {
+                document.getElementById('btn-living').className = 'px-6 py-2 rounded-lg font-semibold bg-blue-600 text-white shadow';
+                document.getElementById('btn-omah').className = 'px-6 py-2 rounded-lg font-semibold bg-gray-200 text-gray-700';
+            }
+            loadRooms();
+        }
+
+        async function openModal(roomNumber) {
+            selectedRoomNumber = roomNumber;
+            document.getElementById('modal-room-title').innerText = `Kamar ${roomNumber} (${activeBuilding})`;
+            document.getElementById('room-modal').classList.remove('hidden');
+
+            document.getElementById('modal-overview').classList.add('hidden');
+            document.getElementById('room-form').classList.add('hidden');
+
+            const { data: tenant } = await _supabase.from('tenants').select('*').eq('room_number', roomNumber).maybeSingle();
+            const { data: payment } = await _supabase.from('payments').select('*').eq('room_number', roomNumber).maybeSingle();
+
+            currentTenantData = tenant;
+
+            if (tenant) {
+                document.getElementById('modal-overview').classList.remove('hidden');
+
+                document.getElementById('ov-name').innerText = tenant.name || '-';
+                document.getElementById('ov-period').innerText = `${tenant.start_date || '-'} s/d ${tenant.end_date || '-'}`;
+                
+                const payStatus = payment ? payment.status : '-';
+                const paySpan = document.getElementById('ov-payment');
+                paySpan.innerText = payStatus;
+                paySpan.className = payStatus === 'Lunas' ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold';
+
+                const ktpSpan = document.getElementById('ov-ktp');
+                if (tenant.id_card_url) {
+                    ktpSpan.innerHTML = `<a href="${tenant.id_card_url}" target="_blank" class="text-blue-600 underline font-medium hover:text-blue-800">Lihat Foto KTP</a>`;
+                } else {
+                    ktpSpan.innerText = 'Tidak ada foto';
+                }
+            } else {
+                showEditForm();
+            }
+        }
+
+        function showEditForm() {
+            document.getElementById('modal-overview').classList.add('hidden');
+            document.getElementById('room-form').classList.remove('hidden');
+
+            if (currentTenantData) {
+                document.getElementById('tenant-name').value = currentTenantData.name || '';
+                document.getElementById('start-date').value = currentTenantData.start_date || '';
+                document.getElementById('end-date').value = currentTenantData.end_date || '';
+            } else {
+                document.getElementById('room-form').reset();
+            }
+        }
+
+        function cancelEdit() {
+            if (currentTenantData) {
+                document.getElementById('room-form').classList.add('hidden');
+                document.getElementById('modal-overview').classList.remove('hidden');
+            } else {
+                closeModal();
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('room-modal').classList.add('hidden');
+        }
+
+        async function clearRoomData() {
+            if (!confirm(`Yakin ingin mengosongkan Kamar ${selectedRoomNumber}? Data penyewa akan dihapus.`)) return;
+
+            await _supabase.from('tenants').delete().eq('room_number', selectedRoomNumber);
+            await _supabase.from('payments').delete().eq('room_number', selectedRoomNumber);
+            await _supabase.from('rooms').update({ status: 'Kosong' }).eq('room_number', selectedRoomNumber);
+
+            alert('Kamar berhasil dikosongkan!');
+            closeModal();
+            loadRooms();
+        }
+
+        async function saveRoomData(event) {
+            event.preventDefault();
+            const name = document.getElementById('tenant-name').value;
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+            const paymentStatus = document.getElementById('payment-status').value;
+            const fileInput = document.getElementById('ktp-file').files[0];
+
+            let ktpUrl = currentTenantData ? currentTenantData.id_card_url : '';
+
+            if (fileInput) {
+                const fileName = `${selectedRoomNumber}_${Date.now()}_${fileInput.name}`;
+                const { error: uploadError } = await _supabase.storage
+                    .from('ktp-photos')
+                    .upload(fileName, fileInput);
+
+                if (uploadError) {
+                    alert('Gagal mengupload foto KTP: ' + uploadError.message);
+                    return;
+                }
+
+                const { data: publicUrlData } = _supabase.storage
+                    .from('ktp-photos')
+                    .getPublicUrl(fileName);
+                
+                ktpUrl = publicUrlData.publicUrl;
+            }
+
+            await _supabase.from('tenants').upsert({
+                room_number: selectedRoomNumber,
+                name: name,
+                id_card_url: ktpUrl || undefined,
+                start_date: startDate,
+                end_date: endDate
+            }, { onConflict: 'room_number' });
+
+            await _supabase.from('rooms').update({ status: 'Terisi' }).eq('room_number', selectedRoomNumber);
+
+            await _supabase.from('payments').upsert({
+                room_number: selectedRoomNumber,
+                amount: 0,
+                payment_date: new Date().toISOString().split('T')[0],
+                status: paymentStatus
+            }, { onConflict: 'room_number' });
+
+            alert('Data berhasil disimpan!');
+            closeModal();
+            loadRooms();
+        }
+    </script>
+</body>
+</html>
