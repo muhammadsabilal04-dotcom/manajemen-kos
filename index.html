@@ -140,6 +140,13 @@
         let selectedRoomNumber = '';
         let currentTenantData = null;
 
+        // Fungsi Helper untuk mengubah format tanggal YYYY-MM-DD menjadi DD Bulan YYYY (Contoh: 02 Agustus 2026)
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            const options = { day: '2-digit', month: 'long', year: 'numeric' };
+            return new Date(dateString).toLocaleDateString('id-ID', options);
+        }
+
         window.onload = async function() {
             const { data: { session } } = await _supabase.auth.getSession();
             if (session) {
@@ -263,7 +270,6 @@
                 return;
             }
 
-            // Map payments per room
             const paymentMap = {};
             if (payments) {
                 payments.forEach(p => {
@@ -302,7 +308,7 @@
             const gridDiv = document.createElement('div');
             gridDiv.className = "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3";
 
-            const todayStr = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
+            const todayStr = new Date().toISOString().split('T')[0];
 
             roomList.forEach(room => {
                 const isKosong = room.status === 'Kosong';
@@ -316,11 +322,8 @@
                     badgeColor = 'bg-red-200 text-red-800';
                 } else {
                     const roomBills = paymentMap[room.room_number] || [];
-                    
-                    // Urutkan tagihan berdasarkan tanggal jatuh tempo
                     roomBills.sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
 
-                    // Cari tagihan aktif berdasarkan tanggal hari ini (due_date terakhir yang sudah/sedang berjalan)
                     let activeBill = null;
                     for (let i = 0; i < roomBills.length; i++) {
                         if (roomBills[i].due_date <= todayStr) {
@@ -328,7 +331,7 @@
                         }
                     }
                     if (!activeBill && roomBills.length > 0) {
-                        activeBill = roomBills[0]; // Fallback jika belum masuk tanggal jatuh tempo pertama
+                        activeBill = roomBills[0];
                     }
 
                     if (activeBill && activeBill.status === 'Belum Lunas') {
@@ -388,9 +391,12 @@
             if (tenant) {
                 document.getElementById('modal-overview').classList.remove('hidden');
                 document.getElementById('ov-name').innerText = tenant.name || '-';
-                document.getElementById('ov-period').innerText = `${tenant.start_date || '-'} s/d ${tenant.end_date || '-'}`;
                 
-                // Render list pembayaran per bulan
+                // Menerapkan format tanggal pada periode sewa (Mulai s/d Selesai)
+                const formattedStart = formatDate(tenant.start_date);
+                const formattedEnd = formatDate(tenant.end_date);
+                document.getElementById('ov-period').innerText = `${formattedStart} s/d ${formattedEnd}`;
+                
                 const payListContainer = document.getElementById('ov-payments-list');
                 payListContainer.innerHTML = '';
 
@@ -402,7 +408,7 @@
                         row.innerHTML = `
                             <div>
                                 <p class="font-bold text-gray-800">${pay.billing_month}</p>
-                                <p class="text-[10px] text-gray-500">Jatuh tempo: ${pay.due_date}</p>
+                                <p class="text-[10px] text-gray-500">Jatuh tempo: ${formatDate(pay.due_date)}</p>
                             </div>
                             <div class="flex items-center gap-2">
                                 <span class="font-semibold ${isLunas ? 'text-green-600' : 'text-yellow-600'}">${pay.status}</span>
