@@ -9,19 +9,21 @@
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center p-4" id="body-container">
 
-    <!-- HALAMAN LOGIN -->
-    <div id="login-screen" class="bg-white rounded-xl shadow-md p-8 max-w-sm w-full">
-        <h1 class="text-2xl font-bold text-gray-800 mb-2 text-center">Login Pegawai</h1>
-        <p class="text-gray-500 text-center mb-6 text-sm">Masukkan PIN untuk akses sistem kos</p>
+    <!-- HALAMAN LOGIN GOOGLE -->
+    <div id="login-screen" class="bg-white rounded-xl shadow-md p-8 max-w-sm w-full text-center">
+        <h1 class="text-2xl font-bold text-gray-800 mb-2">Login Privasi Kos</h1>
+        <p class="text-gray-500 text-mb mb-6 text-sm">Gunakan akun Google yang berizin untuk masuk ke sistem.</p>
         
-        <form onsubmit="handleLogin(event)" class="space-y-4">
-            <div>
-                <label class="block text-sm font-medium text-gray-700">PIN Akses</label>
-                <input type="password" id="pin-input" class="w-full mt-1 p-3 border rounded-lg text-center tracking-widest text-lg" placeholder="••••" required>
-            </div>
-            <button type="submit" class="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold shadow hover:bg-blue-700 transition">Masuk</button>
-        </form>
-        <p id="login-error" class="text-red-500 text-xs text-center mt-3 hidden">PIN salah! Coba lagi.</p>
+        <button onclick="handleGoogleLogin()" class="w-full py-3 bg-white border border-gray-300 text-gray-700 rounded-lg font-semibold shadow-sm hover:bg-gray-50 transition flex items-center justify-center gap-2">
+            <svg class="w-5 h-5" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+            </svg>
+            Masuk dengan Google
+        </button>
+        <p id="login-error" class="text-red-500 text-xs text-center mt-4 hidden">Akses ditolak! Email Anda tidak terdaftar dalam sistem.</p>
     </div>
 
     <!-- HALAMAN UTAMA APLIKASI KOS -->
@@ -44,9 +46,7 @@
         <h2 id="current-building-title" class="text-xl font-bold text-gray-700 mb-4">Daftar Kamar: Omah Gading</h2>
         
         <!-- Kontainer Daftar Kamar Berdasarkan Kategori -->
-        <div id="room-sections-container" class="space-y-6">
-            <!-- Kategori / Section akan dimuat otomatis di sini secara urut -->
-        </div>
+        <div id="room-sections-container" class="space-y-6"></div>
     </div>
 
     <!-- MODAL DETAIL KAMAR -->
@@ -54,7 +54,6 @@
         <div class="bg-white rounded-xl p-6 max-w-md w-full">
             <h3 id="modal-room-title" class="text-xl font-bold mb-4 text-gray-800">Detail Kamar</h3>
             
-            <!-- TAMPILAN OVERVIEW -->
             <div id="modal-overview" class="space-y-4">
                 <div class="bg-gray-50 p-4 rounded-xl border space-y-2 text-sm text-gray-700">
                     <p><strong>Nama Penyewa:</strong> <span id="ov-name" class="text-gray-900">-</span></p>
@@ -72,7 +71,6 @@
                 </div>
             </div>
 
-            <!-- TAMPILAN FORM EDIT -->
             <form id="room-form" onsubmit="saveRoomData(event)" class="space-y-4 hidden">
                 <div>
                     <label class="block text-sm font-medium text-gray-700">Nama Penyewa / Tamu</label>
@@ -115,36 +113,53 @@
         const { createClient } = supabase;
         const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        const CORRECT_PIN = '1234';
+        // DAFTAR EMAIL YANG DIIZINKAN MASUK (Ubah sesuai email kamu & pegawai)
+        const ALLOWED_EMAILS = [
+            "muhammadsabilal04@gmail.com",
+            "kuduskartini@gmail.com@gmail.com",
+            "omahgading93@gmail.com@gmail.com",
+            "livingkostkudus@gmail.com@gmail.com"
+        ];
 
         let activeBuilding = 'Omah Gading';
         let selectedRoomNumber = '';
         let currentTenantData = null;
 
-        window.onload = function() {
-            // Auto logout / kembali ke login saat tab/refresh
+        // Cek status login saat halaman dibuka
+        window.onload = async function() {
+            const { data: { session } } = await _supabase.auth.getSession();
+            if (session) {
+                validateAndOpenApp(session.user.email);
+            }
         };
 
-        function handleLogin(event) {
-            event.preventDefault();
-            const enteredPin = document.getElementById('pin-input').value;
-            const errorText = document.getElementById('login-error');
-
-            if (enteredPin === CORRECT_PIN) {
-                showApp();
-            } else {
-                errorText.classList.remove('hidden');
+        async function handleGoogleLogin() {
+            const { error } = await _supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: window.location.href
+                }
+            });
+            if (error) {
+                alert("Gagal login dengan Google: " + error.message);
             }
         }
 
-        function showApp() {
-            document.getElementById('login-screen').classList.add('hidden');
-            document.getElementById('body-container').className = "bg-gray-100 min-h-screen p-4";
-            document.getElementById('app-screen').classList.remove('hidden');
-            loadRooms();
+        async function validateAndOpenApp(email) {
+            const errorText = document.getElementById('login-error');
+            if (ALLOWED_EMAILS.includes(email)) {
+                document.getElementById('login-screen').classList.add('hidden');
+                document.getElementById('body-container').className = "bg-gray-100 min-h-screen p-4";
+                document.getElementById('app-screen').classList.remove('hidden');
+                loadRooms();
+            } else {
+                errorText.classList.remove('hidden');
+                await _supabase.auth.signOut();
+            }
         }
 
-        function handleLogout() {
+        async function handleLogout() {
+            await _supabase.auth.signOut();
             location.reload();
         }
 
@@ -162,7 +177,6 @@
                 return;
             }
 
-            // Urutkan nomor kamar secara natural
             rooms.sort((a, b) => {
                 return a.room_number.localeCompare(b.room_number, undefined, { numeric: true, sensitivity: 'base' });
             });
@@ -172,15 +186,12 @@
             if (activeBuilding === 'Omah Gading') {
                 const lantai1 = rooms.filter(r => r.room_number.startsWith('K1.'));
                 const lantai2 = rooms.filter(r => r.room_number.startsWith('K2.'));
-
                 if (lantai1.length > 0) renderSection(container, 'Lantai 1', lantai1);
                 if (lantai2.length > 0) renderSection(container, 'Lantai 2', lantai2);
-
             } else {
                 const kamarA = rooms.filter(r => r.room_number.startsWith('A'));
                 const kamarB = rooms.filter(r => r.room_number.startsWith('B'));
                 const kamarC = rooms.filter(r => r.room_number.startsWith('C'));
-
                 if (kamarA.length > 0) renderSection(container, 'Kamar A', kamarA);
                 if (kamarB.length > 0) renderSection(container, 'Kamar B', kamarB);
                 if (kamarC.length > 0) renderSection(container, 'Kamar C', kamarC);
@@ -201,7 +212,6 @@
 
             roomList.forEach(room => {
                 const isKosong = room.status === 'Kosong';
-                // Warna dibalik: Kosong = Merah (Warning), Terisi = Hijau (Aman)
                 const bgColor = isKosong ? 'bg-red-50 border-red-300 text-red-700' : 'bg-green-50 border-green-300 text-green-700';
                 
                 const card = document.createElement('div');
@@ -247,7 +257,6 @@
 
             if (tenant) {
                 document.getElementById('modal-overview').classList.remove('hidden');
-
                 document.getElementById('ov-name').innerText = tenant.name || '-';
                 document.getElementById('ov-period').innerText = `${tenant.start_date || '-'} s/d ${tenant.end_date || '-'}`;
                 
