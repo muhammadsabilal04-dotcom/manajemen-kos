@@ -104,9 +104,9 @@
                 </div>
             </form>
 
-            <!-- RIWAYAT KHUSUS KAMAR INI (Tampil di dalam modal) -->
+            <!-- RIWAYAT KHUSUS KAMAR INI (Maksimal 10 Terbaru) -->
             <div class="mt-6 pt-4 border-t">
-                <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">📜 Riwayat Aktivitas Kamar Ini:</h4>
+                <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">📜 Riwayat Aktivitas Kamar Ini (Maks. 10):</h4>
                 <div id="room-specific-history" class="space-y-2 max-h-40 overflow-y-auto text-xs text-gray-600 pr-1">
                     <p class="text-gray-400 text-center py-2">Memuat riwayat...</p>
                 </div>
@@ -169,7 +169,7 @@
             location.reload();
         }
 
-        // FUNGSI PENCATAT RIWAYAT AKTIVITAS
+        // FUNGSI PENCATAT RIWAYAT DENGAN PEMBATASAN MAKSIMAL 10 TERBARU
         async function logActivity(roomNumber, actionDesc) {
             const { data: { session } } = await _supabase.auth.getSession();
             const email = session ? session.user.email : 'Unknown';
@@ -194,6 +194,7 @@
                 locationStr = "GPS tidak aktif";
             }
 
+            // 1. Simpan riwayat baru
             await _supabase.from('room_logs').insert([{
                 room_number: roomNumber,
                 action: actionDesc,
@@ -201,6 +202,22 @@
                 timestamp: timestamp,
                 location: locationStr
             }]);
+
+            // 2. Ambil seluruh riwayat kamar ini, urutkan dari yang terbaru
+            const { data: allLogs, error } = await _supabase
+                .from('room_logs')
+                .select('id')
+                .eq('room_number', roomNumber)
+                .order('created_at', { ascending: false });
+
+            // 3. Jika lebih dari 10, hapus kelebihan data yang paling lama
+            if (!error && allLogs && allLogs.length > 10) {
+                const logsToDelete = allLogs.slice(10).map(log => log.id);
+                await _supabase
+                    .from('room_logs')
+                    .delete()
+                    .in('id', logsToDelete);
+            }
         }
 
         // FUNGSI MEMUAT RIWAYAT KHUSUS KAMAR INI
