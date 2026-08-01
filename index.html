@@ -40,19 +40,21 @@
             <button onclick="switchBuilding('Living Kost')" id="btn-living" class="px-6 py-2 rounded-lg font-semibold bg-gray-200 text-gray-700">Living Kost</button>
         </div>
 
-        <!-- Daftar Kamar -->
+        <!-- Judul Gedung Aktif -->
         <h2 id="current-building-title" class="text-xl font-bold text-gray-700 mb-4">Daftar Kamar: Omah Gading</h2>
-        <div id="room-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-            <!-- Kamar dimuat otomatis -->
+        
+        <!-- Kontainer Daftar Kamar Berdasarkan Kategori -->
+        <div id="room-sections-container" class="space-y-6">
+            <!-- Kategori / Section akan dimuat otomatis di sini secara urut -->
         </div>
     </div>
 
-    <!-- MODAL DETAIL KAMAR (Overview & Form) -->
+    <!-- MODAL DETAIL KAMAR -->
     <div id="room-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-xl p-6 max-w-md w-full">
             <h3 id="modal-room-title" class="text-xl font-bold mb-4 text-gray-800">Detail Kamar</h3>
             
-            <!-- TAMPILAN 1: OVERVIEW (Ringkasan Data) -->
+            <!-- TAMPILAN OVERVIEW -->
             <div id="modal-overview" class="space-y-4">
                 <div class="bg-gray-50 p-4 rounded-xl border space-y-2 text-sm text-gray-700">
                     <p><strong>Nama Penyewa:</strong> <span id="ov-name" class="text-gray-900">-</span></p>
@@ -70,14 +72,14 @@
                 </div>
             </div>
 
-            <!-- TAMPILAN 2: FORM INPUT / EDIT -->
+            <!-- TAMPILAN FORM EDIT -->
             <form id="room-form" onsubmit="saveRoomData(event)" class="space-y-4 hidden">
                 <div>
                     <label class="block text-sm font-medium text-gray-700">Nama Penyewa / Tamu</label>
                     <input type="text" id="tenant-name" class="w-full mt-1 p-2 border rounded-lg text-sm" placeholder="Nama lengkap" required>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700">Upload Foto KTP / Paspor Baru (Opsional)</label>
+                    <label class="block text-sm font-medium text-gray-700">Upload Foto KTP Baru (Opsional)</label>
                     <input type="file" id="ktp-file" class="w-full mt-1 p-2 border rounded-lg text-sm">
                 </div>
                 <div class="grid grid-cols-2 gap-2">
@@ -120,7 +122,7 @@
         let currentTenantData = null;
 
         window.onload = function() {
-            // Selalu mulai dari halaman login setiap kali halaman direfresh / dibuka baru
+            // Auto logout / kembali ke login saat tab/refresh
         };
 
         function handleLogin(event) {
@@ -143,12 +145,12 @@
         }
 
         function handleLogout() {
-            location.reload(); // Kembali ke halaman login dan mereset sesi
+            location.reload();
         }
 
         async function loadRooms() {
-            const grid = document.getElementById('room-grid');
-            grid.innerHTML = '<p class="text-gray-500 col-span-full text-center">Memuat data kamar...</p>';
+            const container = document.getElementById('room-sections-container');
+            container.innerHTML = '<p class="text-gray-500 text-center">Memuat data kamar...</p>';
 
             const { data: rooms, error } = await _supabase
                 .from('rooms')
@@ -156,24 +158,65 @@
                 .eq('building', activeBuilding);
 
             if (error) {
-                grid.innerHTML = '<p class="text-red-500 col-span-full text-center">Gagal memuat kamar.</p>';
+                container.innerHTML = '<p class="text-red-500 text-center">Gagal memuat kamar.</p>';
                 return;
             }
 
-            grid.innerHTML = '';
-            rooms.forEach(room => {
+            // Fungsi custom untuk mengurutkan nomor kamar secara natural (K1.2, K1.10, dll)
+            rooms.sort((a, b) => {
+                return a.room_number.localeCompare(b.room_number, undefined, { numeric: true, sensitivity: 'base' });
+            });
+
+            container.innerHTML = '';
+
+            if (activeBuilding === 'Omah Gading') {
+                // Kelompokkan Omah Gading berdasarkan Lantai
+                const lantai1 = rooms.filter(r => r.room_number.startsWith('K1.'));
+                const lantai2 = rooms.filter(r => r.room_number.startsWith('K2.'));
+
+                if (lantai1.length > 0) renderSection(container, 'Lantai 1', lantai1);
+                if (lantai2.length > 0) renderSection(container, 'Lantai 2', lantai2);
+
+            } else {
+                // Kelompokkan Living Kost berdasarkan Kamar A, B, C
+                const kamarA = rooms.filter(r => r.room_number.startsWith('A'));
+                const kamarB = rooms.filter(r => r.room_number.startsWith('B'));
+                const kamarC = rooms.filter(r => r.room_number.startsWith('C'));
+
+                if (kamarA.length > 0) renderSection(container, 'Kamar A', kamarA);
+                if (kamarB.length > 0) renderSection(container, 'Kamar B', kamarB);
+                if (kamarC.length > 0) renderSection(container, 'Kamar C', kamarC);
+            }
+        }
+
+        function renderSection(parentContainer, sectionTitle, roomList) {
+            const sectionDiv = document.createElement('div');
+            sectionDiv.className = "bg-gray-50 p-4 rounded-xl border";
+
+            const titleH3 = document.createElement('h3');
+            titleH3.className = "text-md font-bold text-gray-700 mb-3";
+            titleH3.innerText = sectionTitle;
+            sectionDiv.appendChild(titleH3);
+
+            const gridDiv = document.createElement('div');
+            gridDiv.className = "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3";
+
+            roomList.forEach(room => {
                 const isOccupied = room.status === 'Terisi';
                 const bgColor = isOccupied ? 'bg-red-50 border-red-300 text-red-700' : 'bg-green-50 border-green-300 text-green-700';
                 
                 const card = document.createElement('div');
-                card.className = `p-4 rounded-xl border-2 cursor-pointer flex flex-col items-center justify-center transition hover:shadow-md ${bgColor}`;
+                card.className = `p-3 rounded-xl border-2 cursor-pointer flex flex-col items-center justify-center transition hover:shadow-md ${bgColor}`;
                 card.innerHTML = `
-                    <span class="text-lg font-bold">${room.room_number}</span>
-                    <span class="text-xs mt-1 font-medium px-2 py-0.5 rounded ${isOccupied ? 'bg-red-200 text-red-800' : 'bg-green-200 text-green-800'}">${room.status}</span>
+                    <span class="text-base font-bold">${room.room_number}</span>
+                    <span class="text-[10px] mt-1 font-medium px-2 py-0.5 rounded ${isOccupied ? 'bg-red-200 text-red-800' : 'bg-green-200 text-green-800'}">${room.status}</span>
                 `;
                 card.onclick = () => openModal(room.room_number);
-                grid.appendChild(card);
+                gridDiv.appendChild(card);
             });
+
+            sectionDiv.appendChild(gridDiv);
+            parentContainer.appendChild(sectionDiv);
         }
 
         function switchBuilding(building) {
