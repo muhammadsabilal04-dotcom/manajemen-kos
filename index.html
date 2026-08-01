@@ -12,7 +12,7 @@
     <!-- HALAMAN LOGIN GOOGLE -->
     <div id="login-screen" class="bg-white rounded-xl shadow-md p-8 max-w-sm w-full text-center">
         <h1 class="text-2xl font-bold text-gray-800 mb-2">Login Privasi Kos</h1>
-        <p class="text-gray-500 text-mb mb-6 text-sm">Gunakan akun Google yang berizin untuk masuk ke sistem.</p>
+        <p class="text-gray-500 text-sm mb-6">Gunakan akun Google yang berizin untuk masuk ke sistem.</p>
         
         <button onclick="handleGoogleLogin()" class="w-full py-3 bg-white border border-gray-300 text-gray-700 rounded-lg font-semibold shadow-sm hover:bg-gray-50 transition flex items-center justify-center gap-2">
             <svg class="w-5 h-5" viewBox="0 0 24 24">
@@ -34,6 +34,11 @@
                 <p class="text-gray-500 text-sm">Omah Gading & Living Kost</p>
             </div>
             <button onclick="handleLogout()" class="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300">Keluar</button>
+        </div>
+
+        <!-- Tombol Riwayat Aktivitas -->
+        <div class="flex justify-center mb-4">
+            <button onclick="openHistoryModal()" class="px-4 py-1.5 bg-gray-800 text-white rounded-lg text-sm font-medium hover:bg-gray-700 transition">📜 Lihat Riwayat Aktivitas</button>
         </div>
 
         <!-- Pilihan Gedung -->
@@ -106,6 +111,19 @@
         </div>
     </div>
 
+    <!-- MODAL RIWAYAT AKTIVITAS -->
+    <div id="history-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl p-6 max-w-lg w-full max-h-[80vh] flex flex-col">
+            <h3 class="text-xl font-bold mb-4 text-gray-800">Riwayat Perubahan Data Kamar</h3>
+            <div id="history-list" class="space-y-3 overflow-y-auto flex-1 pr-2 text-sm text-gray-700">
+                <p class="text-gray-500 text-center">Memuat riwayat...</p>
+            </div>
+            <div class="flex justify-end pt-4 mt-2 border-t">
+                <button type="button" onclick="closeHistoryModal()" class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 text-sm font-medium">Tutup</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const SUPABASE_URL = 'https://buxsllutgupfpytzckiz.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_N2xFBsIOZCGJxwxTmHVGMg_h4itJtY3';
@@ -113,7 +131,7 @@
         const { createClient } = supabase;
         const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // DAFTAR EMAIL YANG DIIZINKAN MASUK (Ubah sesuai email kamu & pegawai)
+        // DAFTAR EMAIL YANG DIIZINKAN MASUK
         const ALLOWED_EMAILS = [
             "muhammadsabilal04@gmail.com",
             "kuduskartini@gmail.com",
@@ -161,6 +179,75 @@
         async function handleLogout() {
             await _supabase.auth.signOut();
             location.reload();
+        }
+
+        // FUNGSI PENCATAT RIWAYAT AKTIVITAS
+        async function logActivity(roomNumber, actionDesc) {
+            const { data: { session } } = await _supabase.auth.getSession();
+            const email = session ? session.user.email : 'Unknown';
+            
+            const now = new Date();
+            const formattedDate = now.toLocaleDateString('id-ID', { dateStyle: 'full' });
+            const formattedTime = now.toLocaleTimeString('id-ID');
+            const timestamp = `${formattedDate}, pukul ${formattedTime}`;
+
+            let locationStr = "Lokasi tidak diizinkan/tidak tersedia";
+            try {
+                if (navigator.geolocation) {
+                    locationStr = await new Promise((resolve) => {
+                        navigator.geolocation.getCurrentPosition(
+                            (pos) => resolve(`Lat: ${pos.coords.latitude.toFixed(4)}, Long: ${pos.coords.longitude.toFixed(4)}`),
+                            () => resolve("Izin lokasi ditolak"),
+                            { timeout: 4000 }
+                        );
+                    });
+                }
+            } catch (e) {
+                locationStr = "GPS tidak aktif";
+            }
+
+            await _supabase.from('room_logs').insert([{
+                room_number: roomNumber,
+                action: actionDesc,
+                changed_by: email,
+                timestamp: timestamp,
+                location: locationStr
+            }]);
+        }
+
+        async function openHistoryModal() {
+            document.getElementById('history-modal').classList.remove('hidden');
+            const container = document.getElementById('history-list');
+            container.innerHTML = '<p class="text-gray-500 text-center">Memuat riwayat...</p>';
+
+            const { data: logs, error } = await _supabase
+                .from('room_logs')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error || !logs || logs.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center">Belum ada riwayat aktivitas.</p>';
+                return;
+            }
+
+            container.innerHTML = '';
+            logs.forEach(log => {
+                const item = document.createElement('div');
+                item.className = "p-3 bg-gray-50 rounded-xl border space-y-1";
+                item.innerHTML = `
+                    <div class="flex justify-between font-semibold text-gray-900">
+                        <span>Kamar ${log.room_number} - ${log.action}</span>
+                        <span class="text-xs text-blue-600 font-normal">${log.changed_by}</span>
+                    </div>
+                    <p class="text-xs text-gray-500">🕒 ${log.timestamp}</p>
+                    <p class="text-xs text-gray-500">📍 ${log.location}</p>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function closeHistoryModal() {
+            document.getElementById('history-modal').classList.add('hidden');
         }
 
         async function loadRooms() {
@@ -305,6 +392,8 @@
         async function clearRoomData() {
             if (!confirm(`Yakin ingin mengosongkan Kamar ${selectedRoomNumber}? Data penyewa akan dihapus.`)) return;
 
+            await logActivity(selectedRoomNumber, 'Mengosongkan Kamar');
+
             await _supabase.from('tenants').delete().eq('room_number', selectedRoomNumber);
             await _supabase.from('payments').delete().eq('room_number', selectedRoomNumber);
             await _supabase.from('rooms').update({ status: 'Kosong' }).eq('room_number', selectedRoomNumber);
@@ -358,6 +447,8 @@
                 payment_date: new Date().toISOString().split('T')[0],
                 status: paymentStatus
             }, { onConflict: 'room_number' });
+
+            await logActivity(selectedRoomNumber, 'Memperbarui/Mengisi Data Kamar');
 
             alert('Data berhasil disimpan!');
             closeModal();
