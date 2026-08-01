@@ -36,11 +36,6 @@
             <button onclick="handleLogout()" class="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300">Keluar</button>
         </div>
 
-        <!-- Tombol Riwayat Aktivitas -->
-        <div class="flex justify-center mb-4">
-            <button onclick="openHistoryModal()" class="px-4 py-1.5 bg-gray-800 text-white rounded-lg text-sm font-medium hover:bg-gray-700 transition">📜 Lihat Riwayat Aktivitas</button>
-        </div>
-
         <!-- Pilihan Gedung -->
         <div class="flex justify-center gap-4 mb-6">
             <button onclick="switchBuilding('Omah Gading')" id="btn-omah" class="px-6 py-2 rounded-lg font-semibold bg-blue-600 text-white shadow">Omah Gading</button>
@@ -56,7 +51,7 @@
 
     <!-- MODAL DETAIL KAMAR -->
     <div id="room-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-xl p-6 max-w-md w-full">
+        <div class="bg-white rounded-xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
             <h3 id="modal-room-title" class="text-xl font-bold mb-4 text-gray-800">Detail Kamar</h3>
             
             <div id="modal-overview" class="space-y-4">
@@ -108,18 +103,13 @@
                     <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold">Simpan Data</button>
                 </div>
             </form>
-        </div>
-    </div>
 
-    <!-- MODAL RIWAYAT AKTIVITAS -->
-    <div id="history-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-xl p-6 max-w-lg w-full max-h-[80vh] flex flex-col">
-            <h3 class="text-xl font-bold mb-4 text-gray-800">Riwayat Perubahan Data Kamar</h3>
-            <div id="history-list" class="space-y-3 overflow-y-auto flex-1 pr-2 text-sm text-gray-700">
-                <p class="text-gray-500 text-center">Memuat riwayat...</p>
-            </div>
-            <div class="flex justify-end pt-4 mt-2 border-t">
-                <button type="button" onclick="closeHistoryModal()" class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 text-sm font-medium">Tutup</button>
+            <!-- RIWAYAT KHUSUS KAMAR INI (Tampil di dalam modal) -->
+            <div class="mt-6 pt-4 border-t">
+                <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">📜 Riwayat Aktivitas Kamar Ini:</h4>
+                <div id="room-specific-history" class="space-y-2 max-h-40 overflow-y-auto text-xs text-gray-600 pr-1">
+                    <p class="text-gray-400 text-center py-2">Memuat riwayat...</p>
+                </div>
             </div>
         </div>
     </div>
@@ -131,7 +121,6 @@
         const { createClient } = supabase;
         const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // DAFTAR EMAIL YANG DIIZINKAN MASUK
         const ALLOWED_EMAILS = [
             "muhammadsabilal04@gmail.com",
             "kuduskartini@gmail.com",
@@ -143,7 +132,6 @@
         let selectedRoomNumber = '';
         let currentTenantData = null;
 
-        // Cek status login saat halaman dibuka
         window.onload = async function() {
             const { data: { session } } = await _supabase.auth.getSession();
             if (session) {
@@ -215,39 +203,36 @@
             }]);
         }
 
-        async function openHistoryModal() {
-            document.getElementById('history-modal').classList.remove('hidden');
-            const container = document.getElementById('history-list');
-            container.innerHTML = '<p class="text-gray-500 text-center">Memuat riwayat...</p>';
+        // FUNGSI MEMUAT RIWAYAT KHUSUS KAMAR INI
+        async function loadRoomHistory(roomNumber) {
+            const container = document.getElementById('room-specific-history');
+            container.innerHTML = '<p class="text-gray-400 text-center py-2">Memuat riwayat...</p>';
 
             const { data: logs, error } = await _supabase
                 .from('room_logs')
                 .select('*')
+                .eq('room_number', roomNumber)
                 .order('created_at', { ascending: false });
 
             if (error || !logs || logs.length === 0) {
-                container.innerHTML = '<p class="text-gray-500 text-center">Belum ada riwayat aktivitas.</p>';
+                container.innerHTML = '<p class="text-gray-400 text-center py-2">Belum ada riwayat perubahan untuk kamar ini.</p>';
                 return;
             }
 
             container.innerHTML = '';
             logs.forEach(log => {
                 const item = document.createElement('div');
-                item.className = "p-3 bg-gray-50 rounded-xl border space-y-1";
+                item.className = "p-2.5 bg-gray-50 rounded-lg border space-y-0.5";
                 item.innerHTML = `
-                    <div class="flex justify-between font-semibold text-gray-900">
-                        <span>Kamar ${log.room_number} - ${log.action}</span>
-                        <span class="text-xs text-blue-600 font-normal">${log.changed_by}</span>
+                    <div class="flex justify-between font-semibold text-gray-800">
+                        <span>${log.action}</span>
+                        <span class="text-blue-600 font-normal text-[11px]">${log.changed_by}</span>
                     </div>
-                    <p class="text-xs text-gray-500">🕒 ${log.timestamp}</p>
-                    <p class="text-xs text-gray-500">📍 ${log.location}</p>
+                    <p class="text-[11px] text-gray-500">🕒 ${log.timestamp}</p>
+                    <p class="text-[11px] text-gray-500">📍 ${log.location}</p>
                 `;
                 container.appendChild(item);
             });
-        }
-
-        function closeHistoryModal() {
-            document.getElementById('history-modal').classList.add('hidden');
         }
 
         async function loadRooms() {
@@ -336,6 +321,9 @@
 
             document.getElementById('modal-overview').classList.add('hidden');
             document.getElementById('room-form').classList.add('hidden');
+
+            // Load riwayat khusus kamar ini
+            loadRoomHistory(roomNumber);
 
             const { data: tenant } = await _supabase.from('tenants').select('*').eq('room_number', roomNumber).maybeSingle();
             const { data: payment } = await _supabase.from('payments').select('*').eq('room_number', roomNumber).maybeSingle();
