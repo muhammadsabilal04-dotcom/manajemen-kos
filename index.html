@@ -530,13 +530,29 @@
         async function clearRoomData() {
             if (!confirm(`Yakin ingin mengosongkan Kamar ${selectedRoomNumber}? Data penyewa dan tagihan akan dihapus.`)) return;
 
-            await logActivity(selectedRoomNumber, 'Mengosongkan Kamar');
+            // Ambil data tenant untuk mengecek file foto yang tersimpan
+            const { data: tenant } = await _supabase.from('tenants').select('id_card_url').eq('room_number', selectedRoomNumber).maybeSingle();
+            
+            // Hapus file fisik dari Supabase Storage jika ada
+            if (tenant && tenant.id_card_url) {
+                try {
+                    const urlParts = tenant.id_card_url.split('/ktp-photos/');
+                    if (urlParts.length > 1) {
+                        const filePath = urlParts[1];
+                        await _supabase.storage.from('ktp-photos').remove([filePath]);
+                    }
+                } catch (err) {
+                    console.error("Gagal menghapus file dari storage:", err);
+                }
+            }
+
+            await logActivity(selectedRoomNumber, 'Mengosongkan Kamar & Menghapus File');
 
             await _supabase.from('tenants').delete().eq('room_number', selectedRoomNumber);
             await _supabase.from('payments').delete().eq('room_number', selectedRoomNumber);
             await _supabase.from('rooms').update({ status: 'Kosong' }).eq('room_number', selectedRoomNumber);
 
-            alert('Kamar berhasil dikosongkan!');
+            alert('Kamar berhasil dikosongkan dan file foto lama telah dibersihkan!');
             closeModal();
             loadRooms();
         }
