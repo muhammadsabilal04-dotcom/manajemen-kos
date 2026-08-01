@@ -162,7 +162,7 @@
                 return;
             }
 
-            // Fungsi custom untuk mengurutkan nomor kamar secara natural (K1.2, K1.10, dll)
+            // Urutkan nomor kamar secara natural
             rooms.sort((a, b) => {
                 return a.room_number.localeCompare(b.room_number, undefined, { numeric: true, sensitivity: 'base' });
             });
@@ -170,7 +170,6 @@
             container.innerHTML = '';
 
             if (activeBuilding === 'Omah Gading') {
-                // Kelompokkan Omah Gading berdasarkan Lantai
                 const lantai1 = rooms.filter(r => r.room_number.startsWith('K1.'));
                 const lantai2 = rooms.filter(r => r.room_number.startsWith('K2.'));
 
@@ -178,7 +177,6 @@
                 if (lantai2.length > 0) renderSection(container, 'Lantai 2', lantai2);
 
             } else {
-                // Kelompokkan Living Kost berdasarkan Kamar A, B, C
                 const kamarA = rooms.filter(r => r.room_number.startsWith('A'));
                 const kamarB = rooms.filter(r => r.room_number.startsWith('B'));
                 const kamarC = rooms.filter(r => r.room_number.startsWith('C'));
@@ -202,14 +200,15 @@
             gridDiv.className = "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3";
 
             roomList.forEach(room => {
-                const isOccupied = room.status === 'Terisi';
-                const bgColor = isOccupied ? 'bg-red-50 border-red-300 text-red-700' : 'bg-green-50 border-green-300 text-green-700';
+                const isKosong = room.status === 'Kosong';
+                // Warna dibalik: Kosong = Merah (Warning), Terisi = Hijau (Aman)
+                const bgColor = isKosong ? 'bg-red-50 border-red-300 text-red-700' : 'bg-green-50 border-green-300 text-green-700';
                 
                 const card = document.createElement('div');
                 card.className = `p-3 rounded-xl border-2 cursor-pointer flex flex-col items-center justify-center transition hover:shadow-md ${bgColor}`;
                 card.innerHTML = `
                     <span class="text-base font-bold">${room.room_number}</span>
-                    <span class="text-[10px] mt-1 font-medium px-2 py-0.5 rounded ${isOccupied ? 'bg-red-200 text-red-800' : 'bg-green-200 text-green-800'}">${room.status}</span>
+                    <span class="text-[10px] mt-1 font-medium px-2 py-0.5 rounded ${isKosong ? 'bg-red-200 text-red-800' : 'bg-green-200 text-green-800'}">${room.status}</span>
                 `;
                 card.onclick = () => openModal(room.room_number);
                 gridDiv.appendChild(card);
