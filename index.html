@@ -60,7 +60,7 @@
                     <p><strong id="ov-period-label">Periode Sewa:</strong> <span id="ov-period" class="text-gray-900">-</span></p>
                     
                     <div id="ov-payments-section">
-                        <strong class="block mb-1">Rincian Pembayaran Per Bulan:</strong>
+                        <strong class="block mb-1">Rincian Pembayaran Per Periode:</strong>
                         <div id="ov-payments-list" class="space-y-2 max-h-40 overflow-y-auto pr-1">
                             <p class="text-gray-400 text-xs">Memuat tagihan...</p>
                         </div>
@@ -118,12 +118,12 @@
                 </div>
 
                 <div id="payment-status-container">
-                    <label class="block text-sm font-medium text-gray-700">Status Pembayaran Bulan Pertama</label>
+                    <label class="block text-sm font-medium text-gray-700">Status Pembayaran Periode Pertama</label>
                     <select id="payment-status" class="w-full mt-1 p-2 border rounded-lg text-sm">
                         <option value="Lunas">Lunas</option>
                         <option value="Belum Lunas">Belum Lunas</option>
                     </select>
-                    <p class="text-[11px] text-gray-500 mt-1">*Bulan berikutnya otomatis dibuat berstatus "Belum Lunas".</p>
+                    <p class="text-[11px] text-gray-500 mt-1">*Periode berikutnya otomatis dibuat berstatus "Belum Lunas".</p>
                 </div>
                 
                 <div class="flex justify-end gap-2 mt-6">
@@ -450,7 +450,7 @@
                             payListContainer.appendChild(row);
                         });
                     } else {
-                        payListContainer.innerHTML = '<p class="text-gray-400 text-xs">Belum ada rincian tagihan bulan.</p>';
+                        payListContainer.innerHTML = '<p class="text-gray-400 text-xs">Belum ada rincian tagihan periode.</p>';
                     }
                 }
 
@@ -530,10 +530,8 @@
         async function clearRoomData() {
             if (!confirm(`Yakin ingin mengosongkan Kamar ${selectedRoomNumber}? Data penyewa dan tagihan akan dihapus.`)) return;
 
-            // Ambil data tenant untuk mengecek file foto yang tersimpan
             const { data: tenant } = await _supabase.from('tenants').select('id_card_url').eq('room_number', selectedRoomNumber).maybeSingle();
             
-            // Hapus file fisik dari Supabase Storage jika ada
             if (tenant && tenant.id_card_url) {
                 try {
                     const urlParts = tenant.id_card_url.split('/ktp-photos/');
@@ -562,25 +560,29 @@
             const end = new Date(endDateStr);
             const bills = [];
             
-            let current = new Date(start.getFullYear(), start.getMonth(), 1);
-            const finalMonth = new Date(end.getFullYear(), end.getMonth(), 1);
-
+            let periodStart = new Date(start);
             let index = 0;
-            while (current <= finalMonth) {
-                const year = current.getFullYear();
-                const month = current.getMonth();
-                const monthName = current.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
-                
-                const dueDateObj = new Date(year, month, start.getDate());
-                const dueDateStr = dueDateObj.toISOString().split('T')[0];
+
+            while (periodStart < end) {
+                let periodEnd = new Date(periodStart);
+                periodEnd.setMonth(periodEnd.getMonth() + 1);
+
+                if (periodEnd > end) {
+                    periodEnd = new Date(end);
+                }
+
+                const formatOpt = { day: '2-digit', month: 'long', year: 'numeric' };
+                const periodLabel = `${periodStart.toLocaleDateString('id-ID', formatOpt)} s/d ${periodEnd.toLocaleDateString('id-ID', formatOpt)}`;
+                const dueDateStr = periodStart.toISOString().split('T')[0];
 
                 bills.push({
-                    billing_month: monthName,
+                    billing_month: periodLabel,
                     due_date: dueDateStr,
                     status: index === 0 ? initialStatus : 'Belum Lunas'
                 });
 
-                current.setMonth(current.getMonth() + 1);
+                if (periodEnd >= end) break;
+                periodStart = new Date(periodEnd);
                 index++;
             }
             return bills;
@@ -656,7 +658,7 @@
 
                 await _supabase.from('payments').insert(paymentsInsert);
 
-                await logActivity(selectedRoomNumber, 'Memperbarui/Mengisi Data Kontrak & Tagihan Bulanan (Terisi)');
+                await logActivity(selectedRoomNumber, 'Memperbarui/Mengisi Data Kontrak & Tagihan Periode (Terisi)');
             }
 
             alert('Data berhasil disimpan!');
