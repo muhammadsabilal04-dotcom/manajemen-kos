@@ -145,7 +145,8 @@
                         <h4 class="font-bold text-amber-900 text-sm">Arsip Penghuni Terdahulu</h4>
                         <p class="text-[11px] text-amber-700">Daftar mantan penyewa di kamar ini.</p>
                     </div>
-                    <button type="button" onclick="showOverview()" class="px-3 py-1.5 bg-white border border-amber-300 hover:bg-amber-100 rounded-lg text-xs font-semibold text-amber-900 transition">
+                    <!-- Menggunakan fungsi kembali yang dinamis -->
+                    <button type="button" onclick="goBackFromArchive()" class="px-3 py-1.5 bg-white border border-amber-300 hover:bg-amber-100 rounded-lg text-xs font-semibold text-amber-900 transition">
                         ← Kembali ke Detail
                     </button>
                 </div>
@@ -332,7 +333,17 @@
             });
         }
 
-        // FUNGSI SWITCH KEMBALI KE DETAIL
+        // FUNGSI KEMBALI DARI ARSIP YANG LEBIH PINTAR (KONDISIONAL)
+        function goBackFromArchive() {
+            document.getElementById('archive-view').classList.add('hidden');
+            if (currentTenantData) {
+                document.getElementById('modal-overview').classList.remove('hidden');
+            } else {
+                document.getElementById('room-form').classList.remove('hidden');
+            }
+        }
+
+        // FUNGSI SWITCH KEMBALI KE OVERVIEW BIASA
         function showOverview() {
             document.getElementById('archive-view').classList.add('hidden');
             document.getElementById('room-form').classList.add('hidden');
@@ -462,8 +473,15 @@
             document.getElementById('modal-room-title').innerText = `Kamar ${roomNumber}`;
             document.getElementById('room-modal').classList.remove('hidden');
 
-            // Reset ke tampilan overview setiap buka modal
-            showOverview();
+            // Reset tampilan & bersihkan data lama agar tidak nyangkut dari kamar sebelumnya
+            document.getElementById('modal-overview').classList.add('hidden');
+            document.getElementById('room-form').classList.add('hidden');
+            document.getElementById('archive-view').classList.add('hidden');
+
+            document.getElementById('ov-name').innerText = '-';
+            document.getElementById('ov-period').innerText = '-';
+            document.getElementById('ov-payments-list').innerHTML = '<p class="text-gray-400 text-xs">Memuat tagihan...</p>';
+            document.getElementById('ov-ktp').innerText = '-';
 
             loadRoomHistory(roomNumber);
 
@@ -521,6 +539,8 @@
                 } else {
                     ktpSpan.innerText = 'Tidak ada file';
                 }
+
+                showOverview();
             } else {
                 showEditForm();
             }
