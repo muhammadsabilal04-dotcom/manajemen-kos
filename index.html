@@ -54,12 +54,13 @@
         <div class="bg-white rounded-xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-4">
                 <h3 id="modal-room-title" class="text-xl font-bold text-gray-800">Detail Kamar</h3>
-                <!-- Tombol Khusus Lihat Arsip (Lebih Bersih & Aman untuk Pengguna) -->
-                <button type="button" onclick="openArchiveModal()" class="px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg text-xs font-semibold hover:bg-amber-100 transition flex items-center gap-1">
+                <!-- Tombol Switch ke Riwayat Arsip -->
+                <button type="button" onclick="showArchiveView()" class="px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg text-xs font-semibold hover:bg-amber-100 transition flex items-center gap-1">
                     📂 Riwayat Penghuni Lama
                 </button>
             </div>
             
+            <!-- VIEW 1: OVERVIEW DETAIL PENYEWA SAAT INI -->
             <div id="modal-overview" class="space-y-4">
                 <div class="bg-gray-50 p-4 rounded-xl border space-y-3 text-sm text-gray-700">
                     <p><strong>Nama Penyewa / Pemesan:</strong> <span id="ov-name" class="text-gray-900">-</span></p>
@@ -84,6 +85,7 @@
                 </div>
             </div>
 
+            <!-- VIEW 2: FORM EDIT / ISI DATA -->
             <form id="room-form" onsubmit="saveRoomData(event)" class="space-y-4 hidden">
                 <div>
                     <label class="block text-sm font-medium text-gray-700">Tipe Pengisian / Status Kamar</label>
@@ -105,7 +107,6 @@
                     <input type="file" id="ktp-file" class="w-full mt-1 p-2 border rounded-lg text-sm">
                 </div>
                 
-                <!-- Pilihan Tanggal untuk Status Terisi -->
                 <div id="date-range-container" class="grid grid-cols-2 gap-2">
                     <div>
                         <label class="block text-sm font-medium text-gray-700">Mulai Sewa</label>
@@ -117,7 +118,6 @@
                     </div>
                 </div>
 
-                <!-- Pilihan Tanggal untuk Status Booking (DP Saja) -->
                 <div id="single-date-container" class="hidden">
                     <label class="block text-sm font-medium text-gray-700">Rencana Tanggal Masuk</label>
                     <input type="date" id="plan-date" class="w-full mt-1 p-2 border rounded-lg text-sm">
@@ -138,28 +138,29 @@
                 </div>
             </form>
 
+            <!-- VIEW 3: DAFTAR ARSIP PENGHUNI LAMA (LANGSUNG GANTI TAMPILAN) -->
+            <div id="archive-view" class="space-y-4 hidden">
+                <div class="flex justify-between items-center bg-amber-50 p-3 rounded-xl border border-amber-200">
+                    <div>
+                        <h4 class="font-bold text-amber-900 text-sm">Arsip Penghuni Terdahulu</h4>
+                        <p class="text-[11px] text-amber-700">Daftar mantan penyewa di kamar ini.</p>
+                    </div>
+                    <button type="button" onclick="showOverview()" class="px-3 py-1.5 bg-white border border-amber-300 hover:bg-amber-100 rounded-lg text-xs font-semibold text-amber-900 transition">
+                        ← Kembali ke Detail
+                    </button>
+                </div>
+
+                <div id="room-archive-list" class="space-y-2 max-h-64 overflow-y-auto text-xs pr-1">
+                    <p class="text-gray-400 text-center py-4">Memuat arsip...</p>
+                </div>
+            </div>
+
             <!-- RIWAYAT AKTIVITAS KAMAR INI -->
             <div class="mt-6 pt-4 border-t">
                 <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">📜 Riwayat Aktivitas Kamar Ini (Maks. 10):</h4>
                 <div id="room-specific-history" class="space-y-2 max-h-32 overflow-y-auto text-xs text-gray-600 pr-1">
                     <p class="text-gray-400 text-center py-2">Memuat riwayat...</p>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- SUB-MODAL KHUSUS ARSIP (POP-UP KEDUA AGAR TIDAK BINGUNG) -->
-    <div id="archive-modal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-60">
-        <div class="bg-white rounded-xl p-6 max-w-sm w-full max-h-[80vh] overflow-y-auto shadow-xl">
-            <h3 class="text-lg font-bold mb-1 text-gray-800" id="archive-modal-title">Arsip Penghuni</h3>
-            <p class="text-xs text-gray-500 mb-4">Daftar nama mantan penyewa di kamar ini.</p>
-            
-            <div id="room-archive-list" class="space-y-2 max-h-60 overflow-y-auto text-xs pr-1">
-                <p class="text-gray-400 text-center py-4">Memuat arsip...</p>
-            </div>
-
-            <div class="mt-5 text-right">
-                <button type="button" onclick="closeArchiveModal()" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-700 text-xs font-semibold">Tutup</button>
             </div>
         </div>
     </div>
@@ -299,10 +300,11 @@
             });
         }
 
-        // FUNGSI MEMBUKA MODAL ARSIP KHUSUS
-        async function openArchiveModal() {
-            document.getElementById('archive-modal-title').innerText = `Arsip Penghuni Kamar ${selectedRoomNumber}`;
-            document.getElementById('archive-modal').classList.remove('hidden');
+        // FUNGSI SWITCH TAMPILAN KE ARSIP
+        async function showArchiveView() {
+            document.getElementById('modal-overview').classList.add('hidden');
+            document.getElementById('room-form').classList.add('hidden');
+            document.getElementById('archive-view').classList.remove('hidden');
 
             const listContainer = document.getElementById('room-archive-list');
             listContainer.innerHTML = '<p class="text-gray-400 text-center py-4">Memuat arsip...</p>';
@@ -314,14 +316,14 @@
                 .order('archived_at', { ascending: false });
 
             if (error || !archives || archives.length === 0) {
-                listContainer.innerHTML = '<p class="text-gray-400 text-center py-4">Belum ada arsip penghuni terdahulu.</p>';
+                listContainer.innerHTML = '<p class="text-gray-400 text-center py-4">Belum ada arsip penghuni terdahulu di kamar ini.</p>';
                 return;
             }
 
             listContainer.innerHTML = '';
             archives.forEach(arch => {
                 const item = document.createElement('div');
-                item.className = "p-2.5 bg-gray-50 rounded-lg border space-y-1";
+                item.className = "p-2.5 bg-white rounded-lg border shadow-sm space-y-1";
                 item.innerHTML = `
                     <p class="font-bold text-gray-800">👤 ${arch.name}</p>
                     <p class="text-[11px] text-gray-500">Periode: ${formatDate(arch.start_date)} s/d ${formatDate(arch.end_date)}</p>
@@ -330,8 +332,11 @@
             });
         }
 
-        function closeArchiveModal() {
-            document.getElementById('archive-modal').classList.add('hidden');
+        // FUNGSI SWITCH KEMBALI KE DETAIL
+        function showOverview() {
+            document.getElementById('archive-view').classList.add('hidden');
+            document.getElementById('room-form').classList.add('hidden');
+            document.getElementById('modal-overview').classList.remove('hidden');
         }
 
         async function loadRooms() {
@@ -457,8 +462,8 @@
             document.getElementById('modal-room-title').innerText = `Kamar ${roomNumber}`;
             document.getElementById('room-modal').classList.remove('hidden');
 
-            document.getElementById('modal-overview').classList.add('hidden');
-            document.getElementById('room-form').classList.add('hidden');
+            // Reset ke tampilan overview setiap buka modal
+            showOverview();
 
             loadRoomHistory(roomNumber);
 
@@ -470,7 +475,6 @@
             const isBooking = roomData && roomData.status === 'Booking';
 
             if (tenant) {
-                document.getElementById('modal-overview').classList.remove('hidden');
                 document.getElementById('ov-name').innerText = tenant.name || '-';
                 
                 if (isBooking) {
@@ -557,6 +561,7 @@
 
         function showEditForm() {
             document.getElementById('modal-overview').classList.add('hidden');
+            document.getElementById('archive-view').classList.add('hidden');
             document.getElementById('room-form').classList.remove('hidden');
 
             if (currentTenantData) {
@@ -573,8 +578,7 @@
 
         function cancelEdit() {
             if (currentTenantData) {
-                document.getElementById('room-form').classList.add('hidden');
-                document.getElementById('modal-overview').classList.remove('hidden');
+                showOverview();
             } else {
                 closeModal();
             }
@@ -584,7 +588,7 @@
             document.getElementById('room-modal').classList.add('hidden');
         }
 
-        // VERIFIKASI 2 LANGKAH + ARSIR OTOMATIS
+        // VERIFIKASI 2 LANGKAH + ARSIP OTOMATIS
         async function clearRoomData() {
             const step1 = confirm(`Apakah Anda yakin ingin mengosongkan Kamar ${selectedRoomNumber}?`);
             if (!step1) return;
