@@ -52,7 +52,13 @@
     <!-- MODAL DETAIL KAMAR -->
     <div id="room-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <h3 id="modal-room-title" class="text-xl font-bold mb-4 text-gray-800">Detail Kamar</h3>
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="modal-room-title" class="text-xl font-bold text-gray-800">Detail Kamar</h3>
+                <!-- Tombol Khusus Lihat Arsip (Lebih Bersih & Aman untuk Pengguna) -->
+                <button type="button" onclick="openArchiveModal()" class="px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg text-xs font-semibold hover:bg-amber-100 transition flex items-center gap-1">
+                    📂 Riwayat Penghuni Lama
+                </button>
+            </div>
             
             <div id="modal-overview" class="space-y-4">
                 <div class="bg-gray-50 p-4 rounded-xl border space-y-3 text-sm text-gray-700">
@@ -132,21 +138,28 @@
                 </div>
             </form>
 
-            <!-- RIWAYAT ARSIP & AKTIVITAS KAMAR INI -->
-            <div class="mt-6 pt-4 border-t space-y-4">
-                <div>
-                    <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">📁 Arsip Penghuni Terdahulu:</h4>
-                    <div id="room-archive-history" class="space-y-2 max-h-28 overflow-y-auto text-xs text-gray-600 pr-1">
-                        <p class="text-gray-400 text-center py-1">Memuat arsip...</p>
-                    </div>
+            <!-- RIWAYAT AKTIVITAS KAMAR INI -->
+            <div class="mt-6 pt-4 border-t">
+                <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">📜 Riwayat Aktivitas Kamar Ini (Maks. 10):</h4>
+                <div id="room-specific-history" class="space-y-2 max-h-32 overflow-y-auto text-xs text-gray-600 pr-1">
+                    <p class="text-gray-400 text-center py-2">Memuat riwayat...</p>
                 </div>
+            </div>
+        </div>
+    </div>
 
-                <div>
-                    <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">📜 Riwayat Aktivitas Kamar Ini:</h4>
-                    <div id="room-specific-history" class="space-y-2 max-h-28 overflow-y-auto text-xs text-gray-600 pr-1">
-                        <p class="text-gray-400 text-center py-1">Memuat riwayat...</p>
-                    </div>
-                </div>
+    <!-- SUB-MODAL KHUSUS ARSIP (POP-UP KEDUA AGAR TIDAK BINGUNG) -->
+    <div id="archive-modal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-60">
+        <div class="bg-white rounded-xl p-6 max-w-sm w-full max-h-[80vh] overflow-y-auto shadow-xl">
+            <h3 class="text-lg font-bold mb-1 text-gray-800" id="archive-modal-title">Arsip Penghuni</h3>
+            <p class="text-xs text-gray-500 mb-4">Daftar nama mantan penyewa di kamar ini.</p>
+            
+            <div id="room-archive-list" class="space-y-2 max-h-60 overflow-y-auto text-xs pr-1">
+                <p class="text-gray-400 text-center py-4">Memuat arsip...</p>
+            </div>
+
+            <div class="mt-5 text-right">
+                <button type="button" onclick="closeArchiveModal()" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-700 text-xs font-semibold">Tutup</button>
             </div>
         </div>
     </div>
@@ -258,12 +271,8 @@
 
         async function loadRoomHistory(roomNumber) {
             const container = document.getElementById('room-specific-history');
-            const archiveContainer = document.getElementById('room-archive-history');
-            
-            container.innerHTML = '<p class="text-gray-400 text-center py-1">Memuat riwayat...</p>';
-            archiveContainer.innerHTML = '<p class="text-gray-400 text-center py-1">Memuat arsip...</p>';
+            container.innerHTML = '<p class="text-gray-400 text-center py-2">Memuat riwayat...</p>';
 
-            // Load Activity Logs
             const { data: logs, error } = await _supabase
                 .from('room_logs')
                 .select('*')
@@ -271,44 +280,58 @@
                 .order('created_at', { ascending: false });
 
             if (error || !logs || logs.length === 0) {
-                container.innerHTML = '<p class="text-gray-400 text-center py-1">Belum ada riwayat aktivitas.</p>';
-            } else {
-                container.innerHTML = '';
-                logs.forEach(log => {
-                    const item = document.createElement('div');
-                    item.className = "p-2 bg-gray-50 rounded-lg border space-y-0.5";
-                    item.innerHTML = `
-                        <div class="flex justify-between font-semibold text-gray-800">
-                            <span>${log.action}</span>
-                            <span class="text-blue-600 font-normal text-[11px]">${log.changed_by}</span>
-                        </div>
-                        <p class="text-[11px] text-gray-500">🕒 ${log.timestamp}</p>
-                    `;
-                    container.appendChild(item);
-                });
+                container.innerHTML = '<p class="text-gray-400 text-center py-2">Belum ada riwayat aktivitas.</p>';
+                return;
             }
 
-            // Load Tenant Archives
-            const { data: archives, error: archError } = await _supabase
+            container.innerHTML = '';
+            logs.forEach(log => {
+                const item = document.createElement('div');
+                item.className = "p-2 bg-gray-50 rounded-lg border space-y-0.5";
+                item.innerHTML = `
+                    <div class="flex justify-between font-semibold text-gray-800">
+                        <span>${log.action}</span>
+                        <span class="text-blue-600 font-normal text-[11px]">${log.changed_by}</span>
+                    </div>
+                    <p class="text-[11px] text-gray-500">🕒 ${log.timestamp}</p>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        // FUNGSI MEMBUKA MODAL ARSIP KHUSUS
+        async function openArchiveModal() {
+            document.getElementById('archive-modal-title').innerText = `Arsip Penghuni Kamar ${selectedRoomNumber}`;
+            document.getElementById('archive-modal').classList.remove('hidden');
+
+            const listContainer = document.getElementById('room-archive-list');
+            listContainer.innerHTML = '<p class="text-gray-400 text-center py-4">Memuat arsip...</p>';
+
+            const { data: archives, error } = await _supabase
                 .from('tenant_history')
                 .select('*')
-                .eq('room_number', roomNumber)
+                .eq('room_number', selectedRoomNumber)
                 .order('archived_at', { ascending: false });
 
-            if (archError || !archives || archives.length === 0) {
-                archiveContainer.innerHTML = '<p class="text-gray-400 text-center py-1">Belum ada arsip penghuni terdahulu.</p>';
-            } else {
-                archiveContainer.innerHTML = '';
-                archives.forEach(arch => {
-                    const item = document.createElement('div');
-                    item.className = "p-2 bg-white rounded-lg border space-y-0.5 shadow-sm";
-                    item.innerHTML = `
-                        <p class="font-bold text-gray-850">👤 ${arch.name}</p>
-                        <p class="text-[11px] text-gray-500">Periode: ${formatDate(arch.start_date)} s/d ${formatDate(arch.end_date)}</p>
-                    `;
-                    archiveContainer.appendChild(item);
-                });
+            if (error || !archives || archives.length === 0) {
+                listContainer.innerHTML = '<p class="text-gray-400 text-center py-4">Belum ada arsip penghuni terdahulu.</p>';
+                return;
             }
+
+            listContainer.innerHTML = '';
+            archives.forEach(arch => {
+                const item = document.createElement('div');
+                item.className = "p-2.5 bg-gray-50 rounded-lg border space-y-1";
+                item.innerHTML = `
+                    <p class="font-bold text-gray-800">👤 ${arch.name}</p>
+                    <p class="text-[11px] text-gray-500">Periode: ${formatDate(arch.start_date)} s/d ${formatDate(arch.end_date)}</p>
+                `;
+                listContainer.appendChild(item);
+            });
+        }
+
+        function closeArchiveModal() {
+            document.getElementById('archive-modal').classList.add('hidden');
         }
 
         async function loadRooms() {
@@ -431,7 +454,7 @@
 
         async function openModal(roomNumber) {
             selectedRoomNumber = roomNumber;
-            document.getElementById('modal-room-title').innerText = `Kamar ${roomNumber} (${activeBuilding})`;
+            document.getElementById('modal-room-title').innerText = `Kamar ${roomNumber}`;
             document.getElementById('room-modal').classList.remove('hidden');
 
             document.getElementById('modal-overview').classList.add('hidden');
@@ -561,21 +584,17 @@
             document.getElementById('room-modal').classList.add('hidden');
         }
 
-        // VERIFIKASI 2 LANGKAH + ARSIP OTOMATIS
+        // VERIFIKASI 2 LANGKAH + ARSIR OTOMATIS
         async function clearRoomData() {
-            // Langkah 1: Konfirmasi Pertama
             const step1 = confirm(`Apakah Anda yakin ingin mengosongkan Kamar ${selectedRoomNumber}?`);
             if (!step1) return;
 
-            // Langkah 2: Konfirmasi Kedua (Peringatan Terakhir)
             const step2 = confirm(`Peringatan Terakhir: Data penyewa akan diarsipkan dan kamar akan dikosongkan. Lanjutkan?`);
             if (!step2) return;
 
-            // Ambil data tenant saat ini sebelum dihapus
             const { data: tenant } = await _supabase.from('tenants').select('*').eq('room_number', selectedRoomNumber).maybeSingle();
             
             if (tenant) {
-                // Simpan ke tabel arsip tenant_history
                 await _supabase.from('tenant_history').insert([{
                     room_number: selectedRoomNumber,
                     building: activeBuilding,
@@ -584,7 +603,6 @@
                     end_date: tenant.end_date
                 }]);
 
-                // Hapus file KTP dari Storage jika ada
                 if (tenant.id_card_url) {
                     try {
                         const urlParts = tenant.id_card_url.split('/ktp-photos/');
@@ -604,7 +622,7 @@
             await _supabase.from('payments').delete().eq('room_number', selectedRoomNumber);
             await _supabase.from('rooms').update({ status: 'Kosong' }).eq('room_number', selectedRoomNumber);
 
-            alert('Kamar berhasil dikosongkan, data telah diarsipkan, dan file foto lama telah dibersihkan!');
+            alert('Kamar berhasil dikosongkan dan data berhasil diarsipkan!');
             closeModal();
             loadRooms();
         }
