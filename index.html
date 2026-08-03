@@ -132,11 +132,20 @@
                 </div>
             </form>
 
-            <!-- RIWAYAT KHUSUS KAMAR INI -->
-            <div class="mt-6 pt-4 border-t">
-                <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">📜 Riwayat Aktivitas Kamar Ini (Maks. 10):</h4>
-                <div id="room-specific-history" class="space-y-2 max-h-32 overflow-y-auto text-xs text-gray-600 pr-1">
-                    <p class="text-gray-400 text-center py-2">Memuat riwayat...</p>
+            <!-- RIWAYAT ARSIP & AKTIVITAS KAMAR INI -->
+            <div class="mt-6 pt-4 border-t space-y-4">
+                <div>
+                    <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">📁 Arsip Penghuni Terdahulu:</h4>
+                    <div id="room-archive-history" class="space-y-2 max-h-28 overflow-y-auto text-xs text-gray-600 pr-1">
+                        <p class="text-gray-400 text-center py-1">Memuat arsip...</p>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">📜 Riwayat Aktivitas Kamar Ini:</h4>
+                    <div id="room-specific-history" class="space-y-2 max-h-28 overflow-y-auto text-xs text-gray-600 pr-1">
+                        <p class="text-gray-400 text-center py-1">Memuat riwayat...</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -249,8 +258,12 @@
 
         async function loadRoomHistory(roomNumber) {
             const container = document.getElementById('room-specific-history');
-            container.innerHTML = '<p class="text-gray-400 text-center py-2">Memuat riwayat...</p>';
+            const archiveContainer = document.getElementById('room-archive-history');
+            
+            container.innerHTML = '<p class="text-gray-400 text-center py-1">Memuat riwayat...</p>';
+            archiveContainer.innerHTML = '<p class="text-gray-400 text-center py-1">Memuat arsip...</p>';
 
+            // Load Activity Logs
             const { data: logs, error } = await _supabase
                 .from('room_logs')
                 .select('*')
@@ -258,23 +271,44 @@
                 .order('created_at', { ascending: false });
 
             if (error || !logs || logs.length === 0) {
-                container.innerHTML = '<p class="text-gray-400 text-center py-2">Belum ada riwayat aktivitas.</p>';
-                return;
+                container.innerHTML = '<p class="text-gray-400 text-center py-1">Belum ada riwayat aktivitas.</p>';
+            } else {
+                container.innerHTML = '';
+                logs.forEach(log => {
+                    const item = document.createElement('div');
+                    item.className = "p-2 bg-gray-50 rounded-lg border space-y-0.5";
+                    item.innerHTML = `
+                        <div class="flex justify-between font-semibold text-gray-800">
+                            <span>${log.action}</span>
+                            <span class="text-blue-600 font-normal text-[11px]">${log.changed_by}</span>
+                        </div>
+                        <p class="text-[11px] text-gray-500">🕒 ${log.timestamp}</p>
+                    `;
+                    container.appendChild(item);
+                });
             }
 
-            container.innerHTML = '';
-            logs.forEach(log => {
-                const item = document.createElement('div');
-                item.className = "p-2 bg-gray-50 rounded-lg border space-y-0.5";
-                item.innerHTML = `
-                    <div class="flex justify-between font-semibold text-gray-800">
-                        <span>${log.action}</span>
-                        <span class="text-blue-600 font-normal text-[11px]">${log.changed_by}</span>
-                    </div>
-                    <p class="text-[11px] text-gray-500">🕒 ${log.timestamp}</p>
-                `;
-                container.appendChild(item);
-            });
+            // Load Tenant Archives
+            const { data: archives, error: archError } = await _supabase
+                .from('tenant_history')
+                .select('*')
+                .eq('room_number', roomNumber)
+                .order('archived_at', { ascending: false });
+
+            if (archError || !archives || archives.length === 0) {
+                archiveContainer.innerHTML = '<p class="text-gray-400 text-center py-1">Belum ada arsip penghuni terdahulu.</p>';
+            } else {
+                archiveContainer.innerHTML = '';
+                archives.forEach(arch => {
+                    const item = document.createElement('div');
+                    item.className = "p-2 bg-white rounded-lg border space-y-0.5 shadow-sm";
+                    item.innerHTML = `
+                        <p class="font-bold text-gray-850">👤 ${arch.name}</p>
+                        <p class="text-[11px] text-gray-500">Periode: ${formatDate(arch.start_date)} s/d ${formatDate(arch.end_date)}</p>
+                    `;
+                    archiveContainer.appendChild(item);
+                });
+            }
         }
 
         async function loadRooms() {
@@ -527,30 +561,50 @@
             document.getElementById('room-modal').classList.add('hidden');
         }
 
+        // VERIFIKASI 2 LANGKAH + ARSIP OTOMATIS
         async function clearRoomData() {
-            if (!confirm(`Yakin ingin mengosongkan Kamar ${selectedRoomNumber}? Data penyewa dan tagihan akan dihapus.`)) return;
+            // Langkah 1: Konfirmasi Pertama
+            const step1 = confirm(`Apakah Anda yakin ingin mengosongkan Kamar ${selectedRoomNumber}?`);
+            if (!step1) return;
 
-            const { data: tenant } = await _supabase.from('tenants').select('id_card_url').eq('room_number', selectedRoomNumber).maybeSingle();
+            // Langkah 2: Konfirmasi Kedua (Peringatan Terakhir)
+            const step2 = confirm(`Peringatan Terakhir: Data penyewa akan diarsipkan dan kamar akan dikosongkan. Lanjutkan?`);
+            if (!step2) return;
+
+            // Ambil data tenant saat ini sebelum dihapus
+            const { data: tenant } = await _supabase.from('tenants').select('*').eq('room_number', selectedRoomNumber).maybeSingle();
             
-            if (tenant && tenant.id_card_url) {
-                try {
-                    const urlParts = tenant.id_card_url.split('/ktp-photos/');
-                    if (urlParts.length > 1) {
-                        const filePath = urlParts[1];
-                        await _supabase.storage.from('ktp-photos').remove([filePath]);
+            if (tenant) {
+                // Simpan ke tabel arsip tenant_history
+                await _supabase.from('tenant_history').insert([{
+                    room_number: selectedRoomNumber,
+                    building: activeBuilding,
+                    name: tenant.name,
+                    start_date: tenant.start_date,
+                    end_date: tenant.end_date
+                }]);
+
+                // Hapus file KTP dari Storage jika ada
+                if (tenant.id_card_url) {
+                    try {
+                        const urlParts = tenant.id_card_url.split('/ktp-photos/');
+                        if (urlParts.length > 1) {
+                            const filePath = urlParts[1];
+                            await _supabase.storage.from('ktp-photos').remove([filePath]);
+                        }
+                    } catch (err) {
+                        console.error("Gagal menghapus file dari storage:", err);
                     }
-                } catch (err) {
-                    console.error("Gagal menghapus file dari storage:", err);
                 }
             }
 
-            await logActivity(selectedRoomNumber, 'Mengosongkan Kamar & Menghapus File');
+            await logActivity(selectedRoomNumber, 'Mengosongkan Kamar, Mengarsipkan Data & Menghapus File');
 
             await _supabase.from('tenants').delete().eq('room_number', selectedRoomNumber);
             await _supabase.from('payments').delete().eq('room_number', selectedRoomNumber);
             await _supabase.from('rooms').update({ status: 'Kosong' }).eq('room_number', selectedRoomNumber);
 
-            alert('Kamar berhasil dikosongkan dan file foto lama telah dibersihkan!');
+            alert('Kamar berhasil dikosongkan, data telah diarsipkan, dan file foto lama telah dibersihkan!');
             closeModal();
             loadRooms();
         }
