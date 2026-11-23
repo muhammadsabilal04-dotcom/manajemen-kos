@@ -191,23 +191,29 @@
                 </div>
             </form>
 
-            <!-- VIEW 2B-EDIT: FORM EDIT RIWAYAT PERIODE KONTRAK -->
+            <!-- VIEW 2B-EDIT: FORM EDIT RIWAYAT PERIODE KONTRAK (AUTO RENTANG TANGGAL) -->
             <form id="edit-period-form" onsubmit="saveEditedPeriod(event)" class="space-y-4 hidden">
                 <div class="bg-blue-50 p-3 rounded-xl border border-blue-200 text-xs text-blue-900">
-                    <p class="font-bold">Edit Data Riwayat Periode</p>
-                    <p class="mt-0.5">Perbarui rentang/label periode, tanggal mulai periode, atau status pembayarannya.</p>
+                    <p class="font-bold">Edit Riwayat Periode</p>
+                    <p class="mt-0.5">Ubah tanggal mulai atau akhir periode, label rentangnya akan otomatis menyesuaikan.</p>
                 </div>
 
                 <input type="hidden" id="edit-pay-id">
 
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Keterangan / Rentang Periode</label>
-                    <input type="text" id="edit-pay-label" class="w-full mt-1 p-2 border rounded-lg text-sm" placeholder="Contoh: 10 November 2026 s/d 24 November 2026" required>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Tanggal Mulai Periode</label>
+                        <input type="date" id="edit-pay-due-date" onchange="syncEditPeriodLabel()" class="w-full mt-1 p-2 border rounded-lg text-sm" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Tanggal Akhir / Tempo</label>
+                        <input type="date" id="edit-pay-end-date" onchange="syncEditPeriodLabel()" class="w-full mt-1 p-2 border rounded-lg text-sm" required>
+                    </div>
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700">Tanggal Mulai Periode</label>
-                    <input type="date" id="edit-pay-due-date" class="w-full mt-1 p-2 border rounded-lg text-sm" required>
+                    <label class="block text-sm font-medium text-gray-700">Keterangan Rentang Periode (Otomatis)</label>
+                    <input type="text" id="edit-pay-label" class="w-full mt-1 p-2 border rounded-lg text-sm bg-gray-50 font-medium text-gray-800" required>
                 </div>
 
                 <div>
@@ -304,16 +310,57 @@
         let currentPaymentsList = [];
         let tenantMap = {};
 
+        const MONTH_NAMES_ID = [
+            "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+            "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+        ];
+
+        const MONTH_NAMES_SHORT_ID = [
+            "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
+            "Jul", "Agt", "Sep", "Okt", "Nov", "Des"
+        ];
+
+        function parseLocalDate(dateString) {
+            if (!dateString) return null;
+            const clean = String(dateString).split('T')[0];
+            const parts = clean.split('-').map(Number);
+            if (parts.length !== 3 || parts.some(isNaN)) return null;
+            return new Date(parts[0], parts[1] - 1, parts[2]);
+        }
+
         function formatDate(dateString) {
-            if (!dateString) return '-';
-            const options = { day: '2-digit', month: 'long', year: 'numeric' };
-            return new Date(dateString).toLocaleDateString('id-ID', options);
+            const d = parseLocalDate(dateString);
+            if (!d) return '-';
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${day} ${MONTH_NAMES_ID[d.getMonth()]} ${d.getFullYear()}`;
         }
 
         function formatShortDate(dateString) {
-            if (!dateString) return '-';
-            const options = { day: '2-digit', month: 'short', year: 'numeric' };
-            return new Date(dateString).toLocaleDateString('id-ID', options);
+            const d = parseLocalDate(dateString);
+            if (!d) return '-';
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${day} ${MONTH_NAMES_SHORT_ID[d.getMonth()]} ${d.getFullYear()}`;
+        }
+
+        function toIsoDateStr(dateObj) {
+            const yyyy = dateObj.getFullYear();
+            const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const dd = String(dateObj.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+
+        // Mencoba mengekstrak tanggal akhir dari label "DD Bulan YYYY s/d DD Bulan YYYY" jika ada
+        function extractEndDateFromLabel(label) {
+            if (!label || !label.includes('s/d')) return '';
+            const parts = label.split('s/d');
+            const endPart = parts[1].trim();
+            const match = endPart.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/);
+            if (!match) return '';
+            const day = parseInt(match[1], 10);
+            const monthIdx = MONTH_NAMES_ID.findIndex(m => m.toLowerCase() === match[2].toLowerCase());
+            const year = parseInt(match[3], 10);
+            if (monthIdx === -1 || isNaN(day) || isNaN(year)) return '';
+            return toIsoDateStr(new Date(year, monthIdx, day));
         }
 
         window.handleGoogleLogin = async function() {
@@ -541,8 +588,9 @@
             const gridDiv = document.createElement('div');
             gridDiv.className = "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3";
 
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const todayStr = toIsoDateStr(today);
 
             roomList.forEach(room => {
                 let cardColor = '';
@@ -574,17 +622,16 @@
                     if (tenant && tenant.end_date) {
                         dueDateHtml = `<span class="text-[10px] mt-1 font-medium opacity-80">Tempo: ${formatShortDate(tenant.end_date)}</span>`;
 
-                        const [year, month, day] = tenant.end_date.split('-').map(Number);
-                        const endDate = new Date(year, month - 1, day);
-                        endDate.setHours(0, 0, 0, 0);
+                        const endDate = parseLocalDate(tenant.end_date);
+                        if (endDate) {
+                            const diffTime = endDate - today;
+                            diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
-                        const diffTime = endDate - today;
-                        diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-
-                        if (diffDays < 0) {
-                            isOverdue = true; 
-                        } else if (diffDays >= 0 && diffDays <= 7) {
-                            isNearDue = true; 
+                            if (diffDays < 0) {
+                                isOverdue = true; 
+                            } else if (diffDays >= 0 && diffDays <= 7) {
+                                isNearDue = true; 
+                            }
                         }
                     }
 
@@ -597,7 +644,6 @@
                         roomBills.sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
 
                         let activeBill = null;
-                        const todayStr = today.toISOString().split('T')[0];
                         for (let i = 0; i < roomBills.length; i++) {
                             if (roomBills[i].due_date <= todayStr) {
                                 activeBill = roomBills[i];
@@ -758,7 +804,17 @@
             }
         };
 
-        // --- EDIT RIWAYAT PERIODE KONTRAK ---
+        // --- EDIT RIWAYAT PERIODE KONTRAK (AUTO RENTANG TANGGAL) ---
+        window.syncEditPeriodLabel = function() {
+            const startVal = document.getElementById('edit-pay-due-date').value;
+            const endVal = document.getElementById('edit-pay-end-date').value;
+            if (startVal && endVal) {
+                document.getElementById('edit-pay-label').value = `${formatDate(startVal)} s/d ${formatDate(endVal)}`;
+            } else if (startVal) {
+                document.getElementById('edit-pay-label').value = `Mulai ${formatDate(startVal)}`;
+            }
+        };
+
         window.openEditPeriodForm = function(paymentId) {
             const target = currentPaymentsList.find(p => p.id === paymentId);
             if (!target) return;
@@ -766,17 +822,23 @@
             hideAllModalViews();
             document.getElementById('edit-period-form').classList.remove('hidden');
 
+            const startIso = target.due_date ? String(target.due_date).split('T')[0] : '';
+            const extractedEnd = extractEndDateFromLabel(target.billing_month);
+            const fallbackEnd = currentTenantData?.end_date ? String(currentTenantData.end_date).split('T')[0] : '';
+
             document.getElementById('edit-pay-id').value = target.id;
+            document.getElementById('edit-pay-due-date').value = startIso;
+            document.getElementById('edit-pay-end-date').value = extractedEnd || fallbackEnd || startIso;
             document.getElementById('edit-pay-label').value = target.billing_month || '';
-            document.getElementById('edit-pay-due-date').value = target.due_date || '';
             document.getElementById('edit-pay-status').value = target.status || 'Belum Lunas';
         };
 
         window.saveEditedPeriod = async function(event) {
             event.preventDefault();
             const payId = document.getElementById('edit-pay-id').value;
-            const newLabel = document.getElementById('edit-pay-label').value.trim();
             const newDueDate = document.getElementById('edit-pay-due-date').value;
+            const newEndDate = document.getElementById('edit-pay-end-date').value;
+            const newLabel = document.getElementById('edit-pay-label').value.trim();
             const newStatus = document.getElementById('edit-pay-status').value;
 
             await _supabase.from('payments').update({
@@ -784,6 +846,17 @@
                 due_date: newDueDate,
                 status: newStatus
             }).eq('id', payId);
+
+            // Jika tanggal akhir periode ini lebih baru dari jatuh tempo kontrak induk, perbarui juga jatuh tempo induknya
+            if (newEndDate && currentTenantData && currentTenantData.end_date) {
+                const currentEnd = parseLocalDate(currentTenantData.end_date);
+                const editedEnd = parseLocalDate(newEndDate);
+                if (currentEnd && editedEnd && editedEnd > currentEnd) {
+                    await _supabase.from('tenants').update({
+                        end_date: newEndDate
+                    }).eq('room_number', selectedRoomNumber);
+                }
+            }
 
             await logActivity(selectedRoomNumber, `Mengedit riwayat periode: "${newLabel}" (${newStatus})`);
             alert("Perubahan periode berhasil disimpan!");
@@ -809,7 +882,7 @@
             hideAllModalViews();
             document.getElementById('extend-form').classList.remove('hidden');
             
-            const currentEnd = currentTenantData ? currentTenantData.end_date : '';
+            const currentEnd = currentTenantData?.end_date ? String(currentTenantData.end_date).split('T')[0] : '';
             document.getElementById('ext-start-date').value = currentEnd;
             document.getElementById('ext-end-date').value = '';
             document.getElementById('ext-payment-status').value = 'Lunas';
@@ -817,26 +890,18 @@
 
         window.quickAddDays = function(days) {
             const startVal = document.getElementById('ext-start-date').value;
-            if (!startVal) return;
-            const [y, m, d] = startVal.split('-').map(Number);
-            const dateObj = new Date(y, m - 1, d);
+            const dateObj = parseLocalDate(startVal);
+            if (!dateObj) return;
             dateObj.setDate(dateObj.getDate() + days);
-            const yyyy = dateObj.getFullYear();
-            const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
-            const dd = String(dateObj.getDate()).padStart(2, '0');
-            document.getElementById('ext-end-date').value = `${yyyy}-${mm}-${dd}`;
+            document.getElementById('ext-end-date').value = toIsoDateStr(dateObj);
         };
 
         window.quickAddMonths = function(months) {
             const startVal = document.getElementById('ext-start-date').value;
-            if (!startVal) return;
-            const [y, m, d] = startVal.split('-').map(Number);
-            const dateObj = new Date(y, m - 1, d);
+            const dateObj = parseLocalDate(startVal);
+            if (!dateObj) return;
             dateObj.setMonth(dateObj.getMonth() + months);
-            const yyyy = dateObj.getFullYear();
-            const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
-            const dd = String(dateObj.getDate()).padStart(2, '0');
-            document.getElementById('ext-end-date').value = `${yyyy}-${mm}-${dd}`;
+            document.getElementById('ext-end-date').value = toIsoDateStr(dateObj);
         };
 
         window.saveExtendPeriod = async function(event) {
@@ -845,7 +910,9 @@
             const extEnd = document.getElementById('ext-end-date').value;
             const extStatus = document.getElementById('ext-payment-status').value;
 
-            if (new Date(extEnd) <= new Date(extStart)) {
+            const dStart = parseLocalDate(extStart);
+            const dEnd = parseLocalDate(extEnd);
+            if (!dStart || !dEnd || dEnd <= dStart) {
                 alert("Tanggal jatuh tempo baru harus lebih besar dari tanggal mulai perpanjangan.");
                 return;
             }
@@ -1006,7 +1073,7 @@
 
             if (tenant && tenant.next_tenant_name) {
                 const nextFullName = tenant.next_dp_info ? `${tenant.next_tenant_name} (${tenant.next_dp_info})` : tenant.next_tenant_name;
-                const nextDate = tenant.next_plan_date || new Date().toISOString().split('T')[0];
+                const nextDate = tenant.next_plan_date || toIsoDateStr(new Date());
 
                 await _supabase.from('tenants').upsert({
                     room_number: selectedRoomNumber,
@@ -1034,32 +1101,33 @@
         };
 
         function generateMonthlyBills(startDateStr, endDateStr, initialStatus) {
-            const start = new Date(startDateStr);
-            const end = new Date(endDateStr);
+            const start = parseLocalDate(startDateStr);
+            const end = parseLocalDate(endDateStr);
             const bills = [];
+            if (!start || !end) return bills;
             
-            let periodStart = new Date(start);
+            let periodStart = new Date(start.getFullYear(), start.getMonth(), start.getDate());
             let index = 0;
 
             while (periodStart < end) {
-                let periodEnd = new Date(periodStart);
-                periodEnd.setMonth(periodEnd.getMonth() + 1);
+                let periodEnd = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, periodStart.getDate());
 
                 if (periodEnd > end) {
-                    periodEnd = new Date(end);
+                    periodEnd = new Date(end.getFullYear(), end.getMonth(), end.getDate());
                 }
 
-                const periodLabel = `${formatDate(periodStart.toISOString().split('T')[0])} s/d ${formatDate(periodEnd.toISOString().split('T')[0])}`;
-                const dueDateStr = periodStart.toISOString().split('T')[0];
+                const startIso = toIsoDateStr(periodStart);
+                const endIso = toIsoDateStr(periodEnd);
+                const periodLabel = `${formatDate(startIso)} s/d ${formatDate(endIso)}`;
 
                 bills.push({
                     billing_month: periodLabel,
-                    due_date: dueDateStr,
+                    due_date: startIso,
                     status: index === 0 ? initialStatus : 'Belum Lunas'
                 });
 
                 if (periodEnd >= end) break;
-                periodStart = new Date(periodEnd);
+                periodStart = new Date(periodEnd.getFullYear(), periodEnd.getMonth(), periodEnd.getDate());
                 index++;
             }
             return bills;
