@@ -72,7 +72,7 @@
                                 + Perpanjang Sewa
                             </button>
                         </div>
-                        <div id="ov-payments-list" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                        <div id="ov-payments-list" class="space-y-2 max-h-56 overflow-y-auto pr-1">
                             <p class="text-gray-400 text-xs">Memuat tagihan...</p>
                         </div>
                     </div>
@@ -129,7 +129,6 @@
                     <input type="file" id="ktp-file" class="w-full mt-1 p-2 border rounded-lg text-sm">
                 </div>
                 
-                <!-- Bagian tanggal & status bayar hanya muncul saat pengisian kamar baru / booking -->
                 <div id="contract-initial-fields" class="space-y-4">
                     <div id="date-range-container" class="grid grid-cols-2 gap-2">
                         <div>
@@ -758,13 +757,12 @@
                         payments.forEach(pay => {
                             const isLunas = pay.status === 'Lunas';
                             const row = document.createElement('div');
-                            row.className = "flex justify-between items-center gap-2 p-2 bg-white rounded border text-xs";
+                            row.className = "flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 p-2.5 bg-white rounded border text-xs";
                             row.innerHTML = `
-                                <div class="min-w-0 flex-1">
-                                    <p class="font-bold text-gray-800 truncate">${pay.billing_month}</p>
-                                    <p class="text-[10px] text-gray-500">Mulai periode: ${formatDate(pay.due_date)}</p>
+                                <div class="flex-1 break-words leading-snug">
+                                    <p class="font-bold text-gray-800">${pay.billing_month}</p>
                                 </div>
-                                <div class="flex items-center gap-1.5 shrink-0">
+                                <div class="flex items-center justify-between sm:justify-end gap-1.5 shrink-0">
                                     <span class="font-semibold ${isLunas ? 'text-green-600' : 'text-yellow-600'}">${pay.status}</span>
                                     <button type="button" onclick="openEditPeriodForm(${pay.id})" class="px-2 py-1 text-[10px] bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded font-semibold">
                                         Edit
@@ -1041,14 +1039,12 @@
             }
         };
 
-        // --- FORM PENGISIAN BARU VS EDIT PROFIL PENYEWA ---
         window.showEditForm = function() {
             hideAllModalViews();
             document.getElementById('room-form').classList.remove('hidden');
             document.getElementById('ktp-file').value = '';
 
             if (currentTenantData) {
-                // Mode Edit Penyewa yang sudah berjalan: hanya nama & foto KTP
                 isEditingExistingTenant = true;
                 document.getElementById('tenant-name').value = currentTenantData.name || '';
                 document.getElementById('form-new-tenant-fields').classList.add('hidden');
@@ -1058,7 +1054,6 @@
                 document.getElementById('end-date').required = false;
                 document.getElementById('plan-date').required = false;
             } else {
-                // Mode Isi Kamar Baru / Booking: form lengkap
                 isEditingExistingTenant = false;
                 document.getElementById('room-form').reset();
                 document.getElementById('form-new-tenant-fields').classList.remove('hidden');
@@ -1200,7 +1195,6 @@
                 ktpUrl = publicUrlData.publicUrl;
             }
 
-            // Jika sedang mengedit profil penyewa aktif, hanya perbarui nama & foto KTP
             if (isEditingExistingTenant && currentTenantData) {
                 await _supabase.from('tenants').update({
                     name: name,
