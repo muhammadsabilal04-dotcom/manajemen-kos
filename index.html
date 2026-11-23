@@ -97,55 +97,63 @@
                     <button type="button" onclick="clearRoomData()" class="px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-semibold hover:bg-red-200 transition">Kosongkan Kamar</button>
                     <div class="flex gap-2">
                         <button type="button" onclick="closeModal()" class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 text-sm font-medium">Tutup</button>
-                        <button type="button" onclick="showEditForm()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition">Edit Profil / Awal</button>
+                        <button type="button" onclick="showEditForm()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition">Edit Penyewa</button>
                     </div>
                 </div>
             </div>
 
-            <!-- VIEW 2: FORM EDIT / ISI DATA BARU -->
+            <!-- VIEW 2: FORM ISI PENGHUNI BARU / EDIT PROFIL PENYEWA -->
             <form id="room-form" onsubmit="saveRoomData(event)" class="space-y-4 hidden">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Tipe Pengisian / Status Kamar</label>
-                    <select id="input-type" onchange="handleInputTypeChange()" class="w-full mt-1 p-2 border rounded-lg text-sm bg-white font-medium">
-                        <option value="Terisi">Terisi (Penuh)</option>
-                        <option value="Booking">Booking / Sudah DP</option>
-                    </select>
+                <div id="form-new-tenant-fields" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Tipe Pengisian / Status Kamar</label>
+                        <select id="input-type" onchange="handleInputTypeChange()" class="w-full mt-1 p-2 border rounded-lg text-sm bg-white font-medium">
+                            <option value="Terisi">Terisi (Penuh)</option>
+                            <option value="Booking">Booking / Sudah DP</option>
+                        </select>
+                    </div>
                 </div>
+
                 <div>
                     <label class="block text-sm font-medium text-gray-700">Nama Penyewa / Pemesan</label>
                     <input type="text" id="tenant-name" class="w-full mt-1 p-2 border rounded-lg text-sm" placeholder="Nama lengkap" required>
                 </div>
+
                 <div id="dp-amount-container" class="hidden">
                     <label class="block text-sm font-medium text-gray-700">Keterangan / Nominal DP</label>
                     <input type="text" id="dp-info" class="w-full mt-1 p-2 border rounded-lg text-sm" placeholder="Contoh: DP Rp 500.000">
                 </div>
+
                 <div>
                     <label class="block text-sm font-medium text-gray-700">Upload Foto KTP / Bukti DP (Opsional)</label>
                     <input type="file" id="ktp-file" class="w-full mt-1 p-2 border rounded-lg text-sm">
                 </div>
                 
-                <div id="date-range-container" class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Mulai Sewa</label>
-                        <input type="date" id="start-date" class="w-full mt-1 p-2 border rounded-lg text-sm">
+                <!-- Bagian tanggal & status bayar hanya muncul saat pengisian kamar baru / booking -->
+                <div id="contract-initial-fields" class="space-y-4">
+                    <div id="date-range-container" class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Mulai Sewa</label>
+                            <input type="date" id="start-date" class="w-full mt-1 p-2 border rounded-lg text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Jatuh Tempo Akhir</label>
+                            <input type="date" id="end-date" class="w-full mt-1 p-2 border rounded-lg text-sm">
+                        </div>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Jatuh Tempo Akhir</label>
-                        <input type="date" id="end-date" class="w-full mt-1 p-2 border rounded-lg text-sm">
+
+                    <div id="single-date-container" class="hidden">
+                        <label class="block text-sm font-medium text-gray-700">Rencana Tanggal Masuk</label>
+                        <input type="date" id="plan-date" class="w-full mt-1 p-2 border rounded-lg text-sm">
                     </div>
-                </div>
 
-                <div id="single-date-container" class="hidden">
-                    <label class="block text-sm font-medium text-gray-700">Rencana Tanggal Masuk</label>
-                    <input type="date" id="plan-date" class="w-full mt-1 p-2 border rounded-lg text-sm">
-                </div>
-
-                <div id="payment-status-container">
-                    <label class="block text-sm font-medium text-gray-700">Status Pembayaran Periode Pertama</label>
-                    <select id="payment-status" class="w-full mt-1 p-2 border rounded-lg text-sm">
-                        <option value="Lunas">Lunas</option>
-                        <option value="Belum Lunas">Belum Lunas</option>
-                    </select>
+                    <div id="payment-status-container">
+                        <label class="block text-sm font-medium text-gray-700">Status Pembayaran Periode Pertama</label>
+                        <select id="payment-status" class="w-full mt-1 p-2 border rounded-lg text-sm">
+                            <option value="Lunas">Lunas</option>
+                            <option value="Belum Lunas">Belum Lunas</option>
+                        </select>
+                    </div>
                 </div>
                 
                 <div class="flex justify-end gap-2 mt-6">
@@ -308,6 +316,7 @@
         let selectedRoomNumber = '';
         let currentTenantData = null;
         let currentPaymentsList = [];
+        let isEditingExistingTenant = false;
         let tenantMap = {};
 
         const MONTH_NAMES_ID = [
@@ -846,7 +855,6 @@
                 status: newStatus
             }).eq('id', payId);
 
-            // Sinkronkan jatuh tempo akhir kontrak induk jika periode yang diedit adalah periode paling akhir
             const { data: allPayments } = await _supabase
                 .from('payments')
                 .select('*')
@@ -873,7 +881,6 @@
             const label = document.getElementById('edit-pay-label').value;
             await _supabase.from('payments').delete().eq('id', payId);
 
-            // Sinkronkan jatuh tempo akhir (end_date) berdasarkan sisa periode terakhir yang ada
             const { data: remainingPayments } = await _supabase
                 .from('payments')
                 .select('*')
@@ -1008,6 +1015,7 @@
         };
 
         window.handleInputTypeChange = function() {
+            if (isEditingExistingTenant) return;
             const type = document.getElementById('input-type').value;
             const dateRange = document.getElementById('date-range-container');
             const singleDate = document.getElementById('single-date-container');
@@ -1033,17 +1041,28 @@
             }
         };
 
+        // --- FORM PENGISIAN BARU VS EDIT PROFIL PENYEWA ---
         window.showEditForm = function() {
             hideAllModalViews();
             document.getElementById('room-form').classList.remove('hidden');
+            document.getElementById('ktp-file').value = '';
 
             if (currentTenantData) {
+                // Mode Edit Penyewa yang sudah berjalan: hanya nama & foto KTP
+                isEditingExistingTenant = true;
                 document.getElementById('tenant-name').value = currentTenantData.name || '';
-                document.getElementById('start-date').value = currentTenantData.start_date || '';
-                document.getElementById('end-date').value = currentTenantData.end_date || '';
-                document.getElementById('plan-date').value = currentTenantData.start_date || '';
+                document.getElementById('form-new-tenant-fields').classList.add('hidden');
+                document.getElementById('dp-amount-container').classList.add('hidden');
+                document.getElementById('contract-initial-fields').classList.add('hidden');
+                document.getElementById('start-date').required = false;
+                document.getElementById('end-date').required = false;
+                document.getElementById('plan-date').required = false;
             } else {
+                // Mode Isi Kamar Baru / Booking: form lengkap
+                isEditingExistingTenant = false;
                 document.getElementById('room-form').reset();
+                document.getElementById('form-new-tenant-fields').classList.remove('hidden');
+                document.getElementById('contract-initial-fields').classList.remove('hidden');
                 document.getElementById('input-type').value = 'Terisi';
                 handleInputTypeChange();
             }
@@ -1158,8 +1177,7 @@
 
         window.saveRoomData = async function(event) {
             event.preventDefault();
-            const inputType = document.getElementById('input-type').value;
-            const name = document.getElementById('tenant-name').value;
+            const name = document.getElementById('tenant-name').value.trim();
             const fileInput = document.getElementById('ktp-file').files[0];
 
             let ktpUrl = currentTenantData ? currentTenantData.id_card_url : '';
@@ -1181,6 +1199,22 @@
                 
                 ktpUrl = publicUrlData.publicUrl;
             }
+
+            // Jika sedang mengedit profil penyewa aktif, hanya perbarui nama & foto KTP
+            if (isEditingExistingTenant && currentTenantData) {
+                await _supabase.from('tenants').update({
+                    name: name,
+                    id_card_url: ktpUrl || currentTenantData.id_card_url || null
+                }).eq('room_number', selectedRoomNumber);
+
+                await logActivity(selectedRoomNumber, `Memperbarui data profil penyewa menjadi "${name}"`);
+                alert('Data penyewa berhasil diperbarui!');
+                closeModal();
+                loadRooms();
+                return;
+            }
+
+            const inputType = document.getElementById('input-type').value;
 
             if (inputType === 'Booking') {
                 const planDate = document.getElementById('plan-date').value;
