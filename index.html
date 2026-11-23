@@ -349,7 +349,6 @@
             return `${yyyy}-${mm}-${dd}`;
         }
 
-        // Mencoba mengekstrak tanggal akhir dari label "DD Bulan YYYY s/d DD Bulan YYYY" jika ada
         function extractEndDateFromLabel(label) {
             if (!label || !label.includes('s/d')) return '';
             const parts = label.split('s/d');
@@ -804,7 +803,7 @@
             }
         };
 
-        // --- EDIT RIWAYAT PERIODE KONTRAK (AUTO RENTANG TANGGAL) ---
+        // --- EDIT RIWAYAT PERIODE KONTRAK (AUTO RENTANG TANGGAL & SINKRON JATUH TEMPO) ---
         window.syncEditPeriodLabel = function() {
             const startVal = document.getElementById('edit-pay-due-date').value;
             const endVal = document.getElementById('edit-pay-end-date').value;
@@ -847,15 +846,17 @@
                 status: newStatus
             }).eq('id', payId);
 
-            // Jika tanggal akhir periode ini lebih baru dari jatuh tempo kontrak induk, perbarui juga jatuh tempo induknya
-            if (newEndDate && currentTenantData && currentTenantData.end_date) {
-                const currentEnd = parseLocalDate(currentTenantData.end_date);
-                const editedEnd = parseLocalDate(newEndDate);
-                if (currentEnd && editedEnd && editedEnd > currentEnd) {
-                    await _supabase.from('tenants').update({
-                        end_date: newEndDate
-                    }).eq('room_number', selectedRoomNumber);
-                }
+            // Sinkronkan jatuh tempo akhir kontrak induk jika periode yang diedit adalah periode paling akhir
+            const { data: allPayments } = await _supabase
+                .from('payments')
+                .select('*')
+                .eq('room_number', selectedRoomNumber)
+                .order('due_date', { ascending: true });
+
+            if (allPayments && allPayments.length > 0 && String(allPayments[allPayments.length - 1].id) === String(payId) && newEndDate) {
+                await _supabase.from('tenants').update({
+                    end_date: newEndDate
+                }).eq('room_number', selectedRoomNumber);
             }
 
             await logActivity(selectedRoomNumber, `Mengedit riwayat periode: "${newLabel}" (${newStatus})`);
@@ -871,8 +872,30 @@
 
             const label = document.getElementById('edit-pay-label').value;
             await _supabase.from('payments').delete().eq('id', payId);
-            await logActivity(selectedRoomNumber, `Menghapus riwayat periode: "${label}"`);
-            alert("Periode berhasil dihapus.");
+
+            // Sinkronkan jatuh tempo akhir (end_date) berdasarkan sisa periode terakhir yang ada
+            const { data: remainingPayments } = await _supabase
+                .from('payments')
+                .select('*')
+                .eq('room_number', selectedRoomNumber)
+                .order('due_date', { ascending: true });
+
+            let newEndDate = currentTenantData?.start_date || null;
+
+            if (remainingPayments && remainingPayments.length > 0) {
+                const lastBill = remainingPayments[remainingPayments.length - 1];
+                const extractedEnd = extractEndDateFromLabel(lastBill.billing_month);
+                newEndDate = extractedEnd || lastBill.due_date || newEndDate;
+            }
+
+            if (newEndDate) {
+                await _supabase.from('tenants').update({
+                    end_date: newEndDate
+                }).eq('room_number', selectedRoomNumber);
+            }
+
+            await logActivity(selectedRoomNumber, `Menghapus riwayat periode: "${label}" & sinkronisasi jatuh tempo ke ${newEndDate || '-'}`);
+            alert("Periode berhasil dihapus dan tanggal jatuh tempo diperbarui!");
             openModal(selectedRoomNumber);
             loadRooms();
         };
