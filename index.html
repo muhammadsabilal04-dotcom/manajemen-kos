@@ -66,7 +66,12 @@
                     <p><strong id="ov-period-label">Periode Sewa:</strong> <span id="ov-period" class="text-gray-900">-</span></p>
                     
                     <div id="ov-payments-section">
-                        <strong class="block mb-1">Rincian Pembayaran Per Periode:</strong>
+                        <div class="flex justify-between items-center mb-1.5">
+                            <strong>Rincian Periode & Pembayaran:</strong>
+                            <button type="button" onclick="showExtendForm()" class="px-2.5 py-1 bg-emerald-600 text-white rounded-md text-xs font-semibold hover:bg-emerald-700 transition">
+                                + Perpanjang Sewa
+                            </button>
+                        </div>
                         <div id="ov-payments-list" class="space-y-2 max-h-40 overflow-y-auto pr-1">
                             <p class="text-gray-400 text-xs">Memuat tagihan...</p>
                         </div>
@@ -74,17 +79,30 @@
 
                     <p><strong>Foto KTP / Bukti DP:</strong> <span id="ov-ktp">-</span></p>
                 </div>
+
+                <!-- KOTAK NEXT BOOKING / DP SUSULAN (KHUSUS KAMAR TERISI) -->
+                <div id="ov-next-booking-box" class="hidden bg-orange-50 p-3.5 rounded-xl border border-orange-200 text-xs space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="font-bold text-orange-900">🔜 Calon Penghuni Berikutnya (DP Susulan)</span>
+                        <button type="button" id="btn-add-next-dp" onclick="showNextDpForm()" class="px-2.5 py-1 bg-orange-600 text-white rounded font-semibold hover:bg-orange-700 transition">
+                            + Catat Next DP
+                        </button>
+                    </div>
+                    <div id="ov-next-booking-content" class="text-orange-800">
+                        Belum ada calon penghuni yang DP untuk periode berikutnya.
+                    </div>
+                </div>
                 
                 <div class="flex justify-between items-center pt-2">
                     <button type="button" onclick="clearRoomData()" class="px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-semibold hover:bg-red-200 transition">Kosongkan Kamar</button>
                     <div class="flex gap-2">
                         <button type="button" onclick="closeModal()" class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 text-sm font-medium">Tutup</button>
-                        <button type="button" onclick="showEditForm()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition">Edit Data / Kontrak</button>
+                        <button type="button" onclick="showEditForm()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition">Edit Profil / Awal</button>
                     </div>
                 </div>
             </div>
 
-            <!-- VIEW 2: FORM EDIT / ISI DATA -->
+            <!-- VIEW 2: FORM EDIT / ISI DATA BARU -->
             <form id="room-form" onsubmit="saveRoomData(event)" class="space-y-4 hidden">
                 <div>
                     <label class="block text-sm font-medium text-gray-700">Tipe Pengisian / Status Kamar</label>
@@ -128,12 +146,76 @@
                         <option value="Lunas">Lunas</option>
                         <option value="Belum Lunas">Belum Lunas</option>
                     </select>
-                    <p class="text-[11px] text-gray-500 mt-1">*Periode berikutnya otomatis dibuat berstatus "Belum Lunas".</p>
                 </div>
                 
                 <div class="flex justify-end gap-2 mt-6">
                     <button type="button" onclick="cancelEdit()" class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 text-sm">Batal</button>
                     <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold">Simpan Data</button>
+                </div>
+            </form>
+
+            <!-- VIEW 2B: FORM PERPANJANG SEWA FLEKSIBEL (2 MINGGU / 1 BULAN / DLL) -->
+            <form id="extend-form" onsubmit="saveExtendPeriod(event)" class="space-y-4 hidden">
+                <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-200 text-xs text-emerald-900">
+                    <p class="font-bold">Tambah Periode Perpanjangan Baru</p>
+                    <p class="mt-0.5">Periode baru akan ditambahkan tanpa mengubah status lunas periode sebelumnya. Bebas pilih durasi (2 minggu, 1 bulan, dll).</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Mulai Perpanjangan</label>
+                        <input type="date" id="ext-start-date" class="w-full mt-1 p-2 border rounded-lg text-sm bg-gray-50" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Jatuh Tempo Baru</label>
+                        <input type="date" id="ext-end-date" class="w-full mt-1 p-2 border rounded-lg text-sm" required>
+                    </div>
+                </div>
+
+                <div class="flex gap-1.5">
+                    <button type="button" onclick="quickAddDays(14)" class="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 border rounded text-xs font-medium">+ 2 Minggu (14 Hari)</button>
+                    <button type="button" onclick="quickAddMonths(1)" class="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 border rounded text-xs font-medium">+ 1 Bulan</button>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Status Pembayaran Periode Ini</label>
+                    <select id="ext-payment-status" class="w-full mt-1 p-2 border rounded-lg text-sm">
+                        <option value="Lunas">Lunas</option>
+                        <option value="Belum Lunas">Belum Lunas</option>
+                    </select>
+                </div>
+
+                <div class="flex justify-end gap-2 mt-6">
+                    <button type="button" onclick="showOverview()" class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 text-sm">Batal</button>
+                    <button type="submit" class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold">Simpan Perpanjangan</button>
+                </div>
+            </form>
+
+            <!-- VIEW 2C: FORM CATAT NEXT DP (BOOKING SUSULAN) -->
+            <form id="next-dp-form" onsubmit="saveNextDp(event)" class="space-y-4 hidden">
+                <div class="bg-orange-50 p-3 rounded-xl border border-orange-200 text-xs text-orange-900">
+                    <p class="font-bold">Catat Calon Penghuni Berikutnya (DP Susulan)</p>
+                    <p class="mt-0.5">Digunakan jika kamar masih ditempati penghuni lama, namun sudah di-DP oleh penghuni baru.</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Nama Calon Penghuni Baru</label>
+                    <input type="text" id="next-tenant-name" class="w-full mt-1 p-2 border rounded-lg text-sm" placeholder="Nama pemesan" required>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Keterangan / Nominal DP</label>
+                    <input type="text" id="next-dp-info" class="w-full mt-1 p-2 border rounded-lg text-sm" placeholder="Contoh: DP Rp 500.000 via Transfer">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Rencana Tanggal Masuk</label>
+                    <input type="date" id="next-plan-date" class="w-full mt-1 p-2 border rounded-lg text-sm" required>
+                </div>
+
+                <div class="flex justify-end gap-2 mt-6">
+                    <button type="button" onclick="showOverview()" class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 text-sm">Batal</button>
+                    <button type="submit" class="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-semibold">Simpan Next DP</button>
                 </div>
             </form>
 
@@ -199,7 +281,7 @@
 
         window.handleGoogleLogin = async function() {
             if (!_supabase) {
-                alert("Koneksi ke server Supabase belum siap. Pastikan koneksi internet lancar lalu refresh halaman.");
+                alert("Koneksi ke server Supabase belum siap.");
                 return;
             }
             const { error } = await _supabase.auth.signInWithOAuth({
@@ -313,9 +395,16 @@
             });
         }
 
-        window.showArchiveView = async function() {
+        function hideAllModalViews() {
             document.getElementById('modal-overview').classList.add('hidden');
             document.getElementById('room-form').classList.add('hidden');
+            document.getElementById('extend-form').classList.add('hidden');
+            document.getElementById('next-dp-form').classList.add('hidden');
+            document.getElementById('archive-view').classList.add('hidden');
+        }
+
+        window.showArchiveView = async function() {
+            hideAllModalViews();
             document.getElementById('archive-view').classList.remove('hidden');
 
             const listContainer = document.getElementById('room-archive-list');
@@ -345,7 +434,7 @@
         };
 
         window.goBackFromArchive = function() {
-            document.getElementById('archive-view').classList.add('hidden');
+            hideAllModalViews();
             if (currentTenantData) {
                 document.getElementById('modal-overview').classList.remove('hidden');
             } else {
@@ -353,11 +442,10 @@
             }
         };
 
-        function showOverview() {
-            document.getElementById('archive-view').classList.add('hidden');
-            document.getElementById('room-form').classList.add('hidden');
+        window.showOverview = function() {
+            hideAllModalViews();
             document.getElementById('modal-overview').classList.remove('hidden');
-        }
+        };
 
         async function loadRooms() {
             const container = document.getElementById('room-sections-container');
@@ -424,6 +512,7 @@
                 let badgeColor = '';
                 let dueDateHtml = '';
                 let notesBadgeHtml = '';
+                let nextDpBadgeHtml = '';
 
                 const tenant = tenantMap[room.room_number];
 
@@ -495,6 +584,11 @@
                         const countdownLabel = diffDays === 0 ? 'Hari Ini Habis!' : `H-${diffDays} Habis`;
                         notesBadgeHtml = `<span class="mt-1.5 bg-amber-300 text-amber-950 text-[9px] font-bold px-2 py-0.5 rounded border border-amber-400 shadow-sm text-center">📌 Notes: ${countdownLabel}</span>`;
                     }
+
+                    // JIKA ADA CALON PENGHUNI NEXT DP SUSULAN
+                    if (tenant && tenant.next_tenant_name) {
+                        nextDpBadgeHtml = `<span class="mt-1 bg-orange-200 text-orange-950 text-[9px] font-bold px-2 py-0.5 rounded border border-orange-400 text-center">🔜 Next DP: ${tenant.next_tenant_name}</span>`;
+                    }
                 }
                 
                 const card = document.createElement('div');
@@ -504,6 +598,7 @@
                     <span class="text-[10px] mt-1 font-medium px-2 py-0.5 rounded ${badgeColor}">${badgeText}</span>
                     ${dueDateHtml}
                     ${notesBadgeHtml}
+                    ${nextDpBadgeHtml}
                 `;
                 card.onclick = () => openModal(room.room_number);
                 gridDiv.appendChild(card);
@@ -532,9 +627,7 @@
             document.getElementById('modal-room-title').innerText = `Kamar ${roomNumber}`;
             document.getElementById('room-modal').classList.remove('hidden');
 
-            document.getElementById('modal-overview').classList.add('hidden');
-            document.getElementById('room-form').classList.add('hidden');
-            document.getElementById('archive-view').classList.add('hidden');
+            hideAllModalViews();
 
             document.getElementById('ov-name').innerText = '-';
             document.getElementById('ov-period').innerText = '-';
@@ -557,12 +650,14 @@
                     document.getElementById('ov-period-label').innerText = 'Rencana Masuk:';
                     document.getElementById('ov-period').innerText = formatDate(tenant.start_date);
                     document.getElementById('ov-payments-section').classList.add('hidden');
+                    document.getElementById('ov-next-booking-box').classList.add('hidden');
                 } else {
-                    document.getElementById('ov-period-label').innerText = 'Periode Sewa:';
+                    document.getElementById('ov-period-label').innerText = 'Periode Sewa Keseluruhan:';
                     const formattedStart = formatDate(tenant.start_date);
                     const formattedEnd = formatDate(tenant.end_date);
                     document.getElementById('ov-period').innerText = `${formattedStart} s/d ${formattedEnd}`;
                     document.getElementById('ov-payments-section').classList.remove('hidden');
+                    document.getElementById('ov-next-booking-box').classList.remove('hidden');
                     
                     const payListContainer = document.getElementById('ov-payments-list');
                     payListContainer.innerHTML = '';
@@ -575,7 +670,7 @@
                             row.innerHTML = `
                                 <div>
                                     <p class="font-bold text-gray-800">${pay.billing_month}</p>
-                                    <p class="text-[10px] text-gray-500">Jatuh tempo: ${formatDate(pay.due_date)}</p>
+                                    <p class="text-[10px] text-gray-500">Mulai periode: ${formatDate(pay.due_date)}</p>
                                 </div>
                                 <div class="flex items-center gap-2">
                                     <span class="font-semibold ${isLunas ? 'text-green-600' : 'text-yellow-600'}">${pay.status}</span>
@@ -588,6 +683,25 @@
                         });
                     } else {
                         payListContainer.innerHTML = '<p class="text-gray-400 text-xs">Belum ada rincian tagihan periode.</p>';
+                    }
+
+                    // Render kotak Next DP Susulan
+                    const nextContent = document.getElementById('ov-next-booking-content');
+                    const btnAddNext = document.getElementById('btn-add-next-dp');
+                    if (tenant.next_tenant_name) {
+                        btnAddNext.innerText = 'Edit Next DP';
+                        nextContent.innerHTML = `
+                            <div class="bg-white p-2 rounded border border-orange-200 flex justify-between items-center mt-1">
+                                <div>
+                                    <p class="font-bold text-gray-900">👤 ${tenant.next_tenant_name} ${tenant.next_dp_info ? `(${tenant.next_dp_info})` : ''}</p>
+                                    <p class="text-[11px] text-gray-600">Rencana Masuk: ${formatDate(tenant.next_plan_date)}</p>
+                                </div>
+                                <button type="button" onclick="removeNextDp()" class="px-2 py-1 bg-red-100 text-red-700 rounded text-[10px] font-semibold hover:bg-red-200">Hapus DP</button>
+                            </div>
+                        `;
+                    } else {
+                        btnAddNext.innerText = '+ Catat Next DP';
+                        nextContent.innerHTML = 'Belum ada calon penghuni yang DP untuk periode berikutnya.';
                     }
                 }
 
@@ -602,6 +716,115 @@
             } else {
                 showEditForm();
             }
+        };
+
+        // --- FITUR PERPANJANG SEWA FLEKSIBEL (2 MINGGU / 1 BULAN / DLL) ---
+        window.showExtendForm = function() {
+            hideAllModalViews();
+            document.getElementById('extend-form').classList.remove('hidden');
+            
+            // Otomatis isi mulai perpanjangan = tanggal berakhir kontrak saat ini
+            const currentEnd = currentTenantData ? currentTenantData.end_date : '';
+            document.getElementById('ext-start-date').value = currentEnd;
+            document.getElementById('ext-end-date').value = '';
+            document.getElementById('ext-payment-status').value = 'Lunas';
+        };
+
+        window.quickAddDays = function(days) {
+            const startVal = document.getElementById('ext-start-date').value;
+            if (!startVal) return;
+            const [y, m, d] = startVal.split('-').map(Number);
+            const dateObj = new Date(y, m - 1, d);
+            dateObj.setDate(dateObj.getDate() + days);
+            const yyyy = dateObj.getFullYear();
+            const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const dd = String(dateObj.getDate()).padStart(2, '0');
+            document.getElementById('ext-end-date').value = `${yyyy}-${mm}-${dd}`;
+        };
+
+        window.quickAddMonths = function(months) {
+            const startVal = document.getElementById('ext-start-date').value;
+            if (!startVal) return;
+            const [y, m, d] = startVal.split('-').map(Number);
+            const dateObj = new Date(y, m - 1, d);
+            dateObj.setMonth(dateObj.getMonth() + months);
+            const yyyy = dateObj.getFullYear();
+            const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const dd = String(dateObj.getDate()).padStart(2, '0');
+            document.getElementById('ext-end-date').value = `${yyyy}-${mm}-${dd}`;
+        };
+
+        window.saveExtendPeriod = async function(event) {
+            event.preventDefault();
+            const extStart = document.getElementById('ext-start-date').value;
+            const extEnd = document.getElementById('ext-end-date').value;
+            const extStatus = document.getElementById('ext-payment-status').value;
+
+            if (new Date(extEnd) <= new Date(extStart)) {
+                alert("Tanggal jatuh tempo baru harus lebih besar dari tanggal mulai perpanjangan.");
+                return;
+            }
+
+            const periodLabel = `${formatDate(extStart)} s/d ${formatDate(extEnd)}`;
+
+            // 1. Update tanggal berakhir kontrak induk di tabel tenants
+            await _supabase.from('tenants').update({
+                end_date: extEnd
+            }).eq('room_number', selectedRoomNumber);
+
+            // 2. Tambahkan 1 baris periode baru tanpa menyentuh periode lama!
+            await _supabase.from('payments').insert([{
+                room_number: selectedRoomNumber,
+                billing_month: periodLabel,
+                due_date: extStart,
+                status: extStatus
+            }]);
+
+            await logActivity(selectedRoomNumber, `Memperpanjang sewa: ${periodLabel} (${extStatus})`);
+            alert("Periode perpanjangan berhasil ditambahkan!");
+            openModal(selectedRoomNumber);
+            loadRooms();
+        };
+
+        // --- FITUR NEXT DP (BOOKING SUSULAN SAAT PENGHUNI LAMA MASIH ADA) ---
+        window.showNextDpForm = function() {
+            hideAllModalViews();
+            document.getElementById('next-dp-form').classList.remove('hidden');
+
+            document.getElementById('next-tenant-name').value = currentTenantData?.next_tenant_name || '';
+            document.getElementById('next-dp-info').value = currentTenantData?.next_dp_info || '';
+            document.getElementById('next-plan-date').value = currentTenantData?.next_plan_date || currentTenantData?.end_date || '';
+        };
+
+        window.saveNextDp = async function(event) {
+            event.preventDefault();
+            const nextName = document.getElementById('next-tenant-name').value;
+            const nextInfo = document.getElementById('next-dp-info').value;
+            const nextDate = document.getElementById('next-plan-date').value;
+
+            await _supabase.from('tenants').update({
+                next_tenant_name: nextName,
+                next_dp_info: nextInfo,
+                next_plan_date: nextDate
+            }).eq('room_number', selectedRoomNumber);
+
+            await logActivity(selectedRoomNumber, `Mencatat Next DP atas nama ${nextName} (rencana masuk ${nextDate})`);
+            alert("Data DP susulan berhasil disimpan!");
+            openModal(selectedRoomNumber);
+            loadRooms();
+        };
+
+        window.removeNextDp = async function() {
+            if (!confirm("Hapus data calon penghuni DP susulan ini?")) return;
+            await _supabase.from('tenants').update({
+                next_tenant_name: null,
+                next_dp_info: null,
+                next_plan_date: null
+            }).eq('room_number', selectedRoomNumber);
+
+            await logActivity(selectedRoomNumber, 'Menghapus catatan Next DP');
+            openModal(selectedRoomNumber);
+            loadRooms();
         };
 
         window.togglePaymentStatus = async function(paymentId, newStatus, roomNumber) {
@@ -638,8 +861,7 @@
         };
 
         window.showEditForm = function() {
-            document.getElementById('modal-overview').classList.add('hidden');
-            document.getElementById('archive-view').classList.add('hidden');
+            hideAllModalViews();
             document.getElementById('room-form').classList.remove('hidden');
 
             if (currentTenantData) {
@@ -670,7 +892,7 @@
             const step1 = confirm(`Apakah Anda yakin ingin mengosongkan Kamar ${selectedRoomNumber}?`);
             if (!step1) return;
 
-            const step2 = confirm(`Peringatan Terakhir: Data penyewa akan diarsipkan dan kamar akan dikosongkan. Lanjutkan?`);
+            const step2 = confirm(`Peringatan Terakhir: Data penyewa akan diarsipkan. Lanjutkan?`);
             if (!step2) return;
 
             const { data: tenant } = await _supabase.from('tenants').select('*').eq('room_number', selectedRoomNumber).maybeSingle();
@@ -697,13 +919,34 @@
                 }
             }
 
-            await logActivity(selectedRoomNumber, 'Mengosongkan Kamar, Mengarsipkan Data & Menghapus File');
-
-            await _supabase.from('tenants').delete().eq('room_number', selectedRoomNumber);
             await _supabase.from('payments').delete().eq('room_number', selectedRoomNumber);
-            await _supabase.from('rooms').update({ status: 'Kosong' }).eq('room_number', selectedRoomNumber);
 
-            alert('Kamar berhasil dikosongkan dan data berhasil diarsipkan!');
+            // CEK APAKAH ADA NEXT DP SUSULAN YANG SUDAH MENUNGGU
+            if (tenant && tenant.next_tenant_name) {
+                const nextFullName = tenant.next_dp_info ? `${tenant.next_tenant_name} (${tenant.next_dp_info})` : tenant.next_tenant_name;
+                const nextDate = tenant.next_plan_date || new Date().toISOString().split('T')[0];
+
+                await _supabase.from('tenants').upsert({
+                    room_number: selectedRoomNumber,
+                    name: nextFullName,
+                    id_card_url: null,
+                    start_date: nextDate,
+                    end_date: nextDate,
+                    next_tenant_name: null,
+                    next_dp_info: null,
+                    next_plan_date: null
+                }, { onConflict: 'room_number' });
+
+                await _supabase.from('rooms').update({ status: 'Booking' }).eq('room_number', selectedRoomNumber);
+                await logActivity(selectedRoomNumber, `Penghuni lama keluar -> Otomatis beralih ke Booking/DP atas nama ${nextFullName}`);
+                alert(`Penghuni lama diarsipkan! Kamar otomatis berubah menjadi status "Sudah DP" atas nama ${tenant.next_tenant_name}.`);
+            } else {
+                await _supabase.from('tenants').delete().eq('room_number', selectedRoomNumber);
+                await _supabase.from('rooms').update({ status: 'Kosong' }).eq('room_number', selectedRoomNumber);
+                await logActivity(selectedRoomNumber, 'Mengosongkan Kamar, Mengarsipkan Data & Menghapus File');
+                alert('Kamar berhasil dikosongkan dan data berhasil diarsipkan!');
+            }
+
             closeModal();
             loadRooms();
         };
@@ -724,8 +967,7 @@
                     periodEnd = new Date(end);
                 }
 
-                const formatOpt = { day: '2-digit', month: 'long', year: 'numeric' };
-                const periodLabel = `${periodStart.toLocaleDateString('id-ID', formatOpt)} s/d ${periodEnd.toLocaleDateString('id-ID', formatOpt)}`;
+                const periodLabel = `${formatDate(periodStart.toISOString().split('T')[0])} s/d ${formatDate(periodEnd.toISOString().split('T')[0])}`;
                 const dueDateStr = periodStart.toISOString().split('T')[0];
 
                 bills.push({
@@ -804,22 +1046,19 @@
                     .select('*')
                     .eq('room_number', selectedRoomNumber);
 
-                const monthlyBills = generateMonthlyBills(startDate, endDate, initialPaymentStatus);
-                
-                const paymentsUpsert = monthlyBills.map(newBill => {
-                    const found = existingPayments ? existingPayments.find(p => p.billing_month === newBill.billing_month) : null;
-                    return {
+                // Hanya generate tagihan awal jika kamar baru diisi pertama kali (belum ada riwayat tagihan)
+                if (!existingPayments || existingPayments.length === 0) {
+                    const monthlyBills = generateMonthlyBills(startDate, endDate, initialPaymentStatus);
+                    const paymentsInsert = monthlyBills.map(b => ({
                         room_number: selectedRoomNumber,
-                        billing_month: newBill.billing_month,
-                        due_date: newBill.due_date,
-                        status: found ? found.status : newBill.status
-                    };
-                });
+                        billing_month: b.billing_month,
+                        due_date: b.due_date,
+                        status: b.status
+                    }));
+                    await _supabase.from('payments').insert(paymentsInsert);
+                }
 
-                await _supabase.from('payments').delete().eq('room_number', selectedRoomNumber);
-                await _supabase.from('payments').insert(paymentsUpsert);
-
-                await logActivity(selectedRoomNumber, 'Memperbarui/Mengisi Data Kontrak & Mempertahankan Status Pembayaran Lama');
+                await logActivity(selectedRoomNumber, 'Memperbarui/Mengisi Data Kontrak Awal');
             }
 
             alert('Data berhasil disimpan!');
